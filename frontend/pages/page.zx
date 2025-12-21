@@ -2,6 +2,8 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
+const CardImage = @import("components/card.zx").CardImage;
+
 pub fn Page(ctx: zx.PageContext) zx.Component {
     const name = if (ctx.request.query() catch null) |query|
         query.get("pokemon")
@@ -23,14 +25,9 @@ pub fn Page(ctx: zx.PageContext) zx.Component {
         <main @allocator={alloc}>
              Welcome to my page, still under construction
             <script src="/assets/main.js" />
-            <ul>
-                {for (cards) |card| (
-                    {switch (card) {
-                        .pokemon => (<li>{card.pokemon.name}</li>),
-                        else => (<li>not a pokemon</li>),
-                    }}
-                )}
-            </ul>
+            <div class="flex flex-row items-center gap-6">
+                {for (cards) |card| (<CardImage card={card} />)}
+            </div>
         </main>
     );
 }

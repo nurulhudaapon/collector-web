@@ -6,13 +6,13 @@ CREATE TABLE IF NOT EXISTS user (
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS card (
-    id INTEGER PRIMARY KEY NOT NULL,
-    card_id TEXT NOT NULL UNIQUE,
+    id TEXT PRIMARY KEY NOT NULL UNIQUE,
     name TEXT NOT NULL,
     image_url TEXT,
 
+    CHECK (id <> ''),
     CHECK (name <> ''),
-    CHECK (image_url IS NULL OR length(image_url) > 0)
+    CHECK (image_url IS NULL OR image_url <> '')
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS variant (
@@ -26,15 +26,14 @@ CREATE TABLE IF NOT EXISTS variant (
 
     FOREIGN KEY(card_id) REFERENCES card(id),
 
-    CHECK (length(type) > 0),
-    CHECK (subtype IS NULL OR length(subtype) > 0),
-    CHECK (size IS NULL OR length(size) > 0),
-    CHECK (stamp IS NULL OR length(stamp) > 0),
-    CHECK (foil IS NULL OR length(foil) > 0)
+    CHECK (type <> ''),
+    CHECK (subtype IS NULL OR subtype <> ''),
+    CHECK (size IS NULL OR size <> ''),
+    CHECK (stamp IS NULL OR stamp <> ''),
+    CHECK (foil IS NULL OR foil <> '')
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS owned (
-    id INTEGER PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
     variant_id INTEGER NOT NULL,
     owned INTEGER NOT NULL,

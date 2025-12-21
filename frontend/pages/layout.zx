@@ -5,7 +5,7 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
         <html @allocator={ctx.arena} lang="en-US">
             <head>
                 <title>collector</title>
-                <link rel="stylesheet" href="/style.css" />
+                <link rel="stylesheet" href="/styles.css" />
             </head>
             <body>
                 {(children)}

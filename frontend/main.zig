@@ -3,8 +3,6 @@ const std = @import("std");
 const zx = @import("zx");
 const meta = @import("zx_meta").meta;
 
-const backend = @import("backend");
-
 const config: zx.App.Config = .{
     .server = .{},
     .meta = meta,

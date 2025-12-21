@@ -9,6 +9,6 @@ export default {
 		"biome format --write --no-errors-on-unmatched",
 		"biome lint --write --no-errors-on-unmatched",
 	],
-	"*.zig": "zig fmt",
-	"*.zx": "zig build zx -- fmt --ts",
+	"*.zig": ["zlint --verbose", "zig fmt"],
+	"*.zx": "zig build zx -- fmt",
 };

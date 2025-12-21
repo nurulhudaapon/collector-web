@@ -1,0 +1,43 @@
+const std = @import("std");
+
+const zx = @import("zx");
+
+const backend = @import("backend");
+
+const Props = struct {
+    card: backend.sdk.Card,
+    width: []const u8 = "10%",
+    height: []const u8 = "20%",
+};
+
+pub fn CardImage(allocator: zx.Allocator, props: Props) zx.Component {
+    const name = switch (props.card) {
+        inline else => |info| info.name,
+    };
+
+    var allocating: std.Io.Writer.Allocating = .init(allocator);
+    defer allocating.deinit();
+
+    switch (props.card) {
+        .pokemon => |pokemon| {
+            if (pokemon.image) |image| {
+                image.toUrl(&allocating.writer, .high, .png) catch {
+                    allocating.clearRetainingCapacity();
+                };
+            }
+        },
+        else => {},
+    }
+
+    const url: []const u8 = if (allocating.writer.end > 0)
+        allocating.toOwnedSlice() catch "/500.jpg"
+    else
+        "/404.png";
+
+    return (
+        <div @allocator={allocator} class="flex-col text-center">
+            <img src={url} alt={name} width={props.width} height={props.height} />
+            <p>{name}</p>
+        </div>
+    );
+}

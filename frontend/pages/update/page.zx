@@ -1,0 +1,18 @@
+const zx = @import("zx");
+
+const backend = @import("backend");
+
+pub fn Page(ctx: zx.PageContext) zx.Component {
+    const pokemon = if (ctx.request.query() catch null) |query|
+        query.get("pokemon")
+    else
+        null;
+
+    backend.updateAll(ctx.arena, pokemon);
+
+    return (
+        <div @allocator={ctx.allocator}>
+            <input oninput="foo" type="text">
+        </div>
+    );
+}

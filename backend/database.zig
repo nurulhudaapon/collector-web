@@ -3,8 +3,8 @@ const compPrint = std.fmt.comptimePrint;
 const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
-const sqlite = @import("sqlite");
 const zmig = @import("zmig");
+const sqlite = zmig.sqlite;
 
 pub const Connection = sqlite.Db;
 pub const Diagnostics = sqlite.Diagnostics;
@@ -29,27 +29,13 @@ pub const Table = enum {
     }
 };
 
-pub fn init(allocator: Allocator, path: [:0]const u8, diagnostics: *zmig.Diagnostics) !Connection {
-    var database: Connection = try .init(.{
-        .mode = .{ .File = path },
-        .open_flags = .{
-            .create = true,
-            .write = true,
-        },
-    });
-
-    try zmig.applyMigrations(&database, allocator, .{ .diagnostics = diagnostics });
-
-    return database;
-}
-
 pub fn get(
     connection: *Connection,
     comptime table: Table,
     allocator: Allocator,
     comptime column: std.meta.FieldEnum(table.getType()),
     value: @FieldType(table.getType(), @tagName(column)),
-    diagnostics: *sqlite.Diagnostics,
+    diagnostics: ?*sqlite.Diagnostics,
 ) !Owned(?table.getType()) {
     const query = comptime compPrint("SELECT * FROM {s} WHERE {s}=?", .{
         table.name(),
@@ -79,7 +65,7 @@ pub fn all(
     connection: *Connection,
     comptime table: Table,
     allocator: Allocator,
-    diagnostics: *sqlite.Diagnostics,
+    diagnostics: ?*sqlite.Diagnostics,
 ) !Owned([]const table.getType()) {
     const query = comptime compPrint("SELECT * FROM {s}", .{table.name()});
 
@@ -100,13 +86,15 @@ pub fn all(
     };
 }
 
+// TODO: create() method, so that id is not required
+
 /// inserts or updates the given values
 pub fn save(
     connection: *Connection,
     comptime table: Table,
     allocator: Allocator,
     value: table.getType(),
-    diagnostics: *sqlite.Diagnostics,
+    diagnostics: ?*sqlite.Diagnostics,
 ) !void {
     const query = comptime queryBuilder(
         table,

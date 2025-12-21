@@ -17,12 +17,6 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .migrations = b.path("migrations"),
     });
-    // hack: use same version of sqlite as zmig
-    //       without this, compiler may complain about "different" types (zmig vs sqlite deps)
-    const sqlite = zmig.builder.dependency("sqlite", .{
-        .target = target,
-        .optimize = optimize,
-    });
     const zx = b.dependency("zx", .{
         .target = target,
         .optimize = optimize,
@@ -35,7 +29,6 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .imports = &.{
             .{ .name = "ptz", .module = ptz.module("ptz") },
-            .{ .name = "sqlite", .module = sqlite.module("sqlite") },
             .{ .name = "zmig", .module = zmig.module("zmig") },
         },
     });
@@ -54,9 +47,17 @@ pub fn build(b: *std.Build) !void {
     const exe = b.addExecutable(.{
         .name = "collector_web",
         .root_module = frontend,
+        // work around self-hosted crashing on some code
+        .use_llvm = true,
     });
 
     const zx_options: zx_build.ZxInitOptions = .{
+        .cli = .{
+            .steps = .{
+                .serve = "run",
+                .dev = "dev",
+            },
+        },
         .site = .{
             .path = b.path("frontend"),
         },
@@ -67,15 +68,35 @@ pub fn build(b: *std.Build) !void {
     // access zmig CLI
     const zmig_run = b.addRunArtifact(zmig.artifact("zmig"));
     const zmig_step = b.step("zmig", "invoke zmig's CLI");
+    if (b.args) |args| zmig_run.addArgs(args);
     zmig_step.dependOn(&zmig_run.step);
 
     // access zx CLI
     const zx_run = b.addRunArtifact(zx.artifact("zx"));
     const zx_step = b.step("zx", "invokes zx's CLI");
+    if (b.args) |args| zx_run.addArgs(args);
     zx_step.dependOn(&zx_run.step);
 
-    if (b.args) |args| {
-        zmig_run.addArgs(args);
-        zx_run.addArgs(args);
-    }
+    // tests
+    const tests = b.step("test", "run tests");
+    const test_runner: std.Build.Step.Compile.TestRunner = .{
+        .mode = .simple,
+        .path = b.path("lib/test_runner.zig"),
+    };
+
+    const test_backend = b.addTest(.{
+        .root_module = backend,
+        .name = "test_backend",
+        .use_llvm = true,
+        .test_runner = test_runner,
+    });
+    tests.dependOn(&b.addRunArtifact(test_backend).step);
+
+    const test_frontend = b.addTest(.{
+        .root_module = frontend,
+        .name = "test_frontend",
+        .use_llvm = true,
+        .test_runner = test_runner,
+    });
+    tests.dependOn(&b.addRunArtifact(test_frontend).step);
 }
