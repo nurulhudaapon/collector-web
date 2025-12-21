@@ -75,7 +75,7 @@ pub fn getCards(allocator: Allocator, params: sdk.Card.Brief.Params) ![]const sd
     return cards.toOwnedSlice(allocator);
 }
 
-pub fn updateOne(allocator: Allocator, connection: *database.Connection, card: sdk.Card) void {
+fn updateOne(allocator: Allocator, connection: *database.Connection, card: sdk.Card) void {
     const id: []const u8, const name: []const u8, const image: ?ptz.Image = switch (card) {
         inline else => |c| .{ c.id, c.name, c.image },
     };
@@ -112,13 +112,13 @@ pub fn updateOne(allocator: Allocator, connection: *database.Connection, card: s
     ) catch std.log.err("db error: {f}", .{diagnostics});
 }
 
-pub fn updateAll(allocator: Allocator, query: ?[]const u8) void {
+pub fn updateAll(allocator: Allocator, name: ?[]const u8) void {
     var connection = getDbConnection(allocator);
     defer connection.deinit();
 
     var iterator = sdk.Card.all(allocator, .{
         .where = &.{
-            .like(.name, query orelse ""),
+            .like(.name, name orelse ""),
         },
     });
 

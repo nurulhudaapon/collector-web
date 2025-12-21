@@ -1,33 +1,11 @@
 const zx = @import("zx");
 
-const backend = @import("backend");
-
-const CardImage = @import("components/card.zx").CardImage;
-
 pub fn Page(ctx: zx.PageContext) zx.Component {
-    const name = if (ctx.request.query() catch null) |query|
-        query.get("pokemon")
-    else
-        null;
-
-    const alloc = ctx.arena;
-
-    const cards = backend.getCards(alloc, .{
-        .page = 1,
-        .page_size = 5,
-        .where = &.{
-            .like(.name, name orelse ""),
-        },
-    }) catch &.{};
-    defer alloc.free(cards);
-
     return (
-        <main @allocator={alloc}>
-             Welcome to my page, still under construction
-            <script src="/assets/main.js" />
-            <div class="flex flex-row items-center gap-6">
-                {for (cards) |card| (<CardImage card={card} />)}
-            </div>
+        <main @allocator={ctx.arena}>
+            Welcome to my page, still under construction
+            <br />
+            Try and visit <a href="/collection">your collection</a>
         </main>
     );
 }

@@ -1,0 +1,10 @@
+const zx = @import("zx");
+
+const backend = @import("backend");
+
+const Collection = @import("../../components/card.zx").Collection;
+
+pub fn Page(ctx: zx.PageContext) zx.Component {
+    const name = ctx.request.param("name") orelse @panic("unreachable?");
+    return (<Collection @allocator={ctx.allocator} name={name} />);
+}

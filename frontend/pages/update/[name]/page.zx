@@ -3,11 +3,12 @@ const zx = @import("zx");
 const backend = @import("backend");
 
 pub fn Page(ctx: zx.PageContext) zx.Component {
-    backend.updateAll(ctx.arena, null);
+    const name = ctx.request.param("name") orelse @panic("unreachable?");
+    backend.updateAll(ctx.arena, name);
 
     return (
         <div @allocator={ctx.allocator}>
-            Updated every card
+            Updated every {name} card
         </div>
     );
 }

@@ -4,13 +4,13 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
-const Props = struct {
+const ImageProps = struct {
     card: backend.sdk.Card,
     width: []const u8 = "10%",
     height: []const u8 = "20%",
 };
 
-pub fn CardImage(allocator: zx.Allocator, props: Props) zx.Component {
+pub fn Image(allocator: zx.Allocator, props: ImageProps) zx.Component {
     const name = switch (props.card) {
         inline else => |info| info.name,
     };
@@ -35,9 +35,33 @@ pub fn CardImage(allocator: zx.Allocator, props: Props) zx.Component {
         "/404.png";
 
     return (
-        <div @allocator={allocator} class="flex-col text-center">
+        <div @allocator={allocator}>
             <img src={url} alt={name} width={props.width} height={props.height} />
             <p>{name}</p>
+        </div>
+    );
+}
+
+pub const CollectionProps = struct {
+    user_id: []const u8 = "",
+    name: ?[]const u8 = null,
+};
+
+// TODO:
+//   db query instead of calling API
+//   show owned/missing based on 'owned' table + user id
+pub fn Collection(allocator: zx.Allocator, props: CollectionProps) zx.Component {
+    const cards = backend.getCards(allocator, .{
+        .page_size = 5,
+        .where = &.{
+            .like(.name, props.name orelse ""),
+        },
+    }) catch &.{};
+    defer allocator.free(cards);
+
+    return (
+        <div @allocator={allocator}>
+            {for (cards) |card| (<Image card={card} />)}
         </div>
     );
 }

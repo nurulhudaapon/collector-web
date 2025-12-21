@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 id: u64,
 card_id: []const u8,
@@ -15,7 +16,7 @@ const Stamp = struct {
     value: []const []const u8,
 
     // zig -> db
-    pub fn bindField(self: Stamp, allocator: std.mem.Allocator) !BaseType {
+    pub fn bindField(self: Stamp, allocator: Allocator) !BaseType {
         var list: std.ArrayList(u8) = .empty;
         defer list.deinit(allocator);
 
@@ -28,7 +29,7 @@ const Stamp = struct {
     }
 
     // db -> zig
-    pub fn readField(allocator: std.mem.Allocator, base: BaseType) !Stamp {
+    pub fn readField(allocator: Allocator, base: BaseType) !Stamp {
         var list: std.ArrayList([]const u8) = .empty;
         defer {
             for (list.items) |item| {

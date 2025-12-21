@@ -12,8 +12,8 @@
             .path = "../zmig",
         },
         .zx = .{
-            .url = "git+https://github.com/nurulhudaapon/zx#e0445d4f4976375055b1a870eedf042bdf187983",
-            .hash = "zx-0.1.0-dev.376-8okzKrPvdgB2QmBXjnnte1DO60BKQXrZuyKeoNY9jwqk",
+            .url = "git+https://github.com/nurulhudaapon/zx#d8742e13d0662442ed72b55d0a63d88eebd63b6b",
+            .hash = "zx-0.1.0-dev.385-8okzKjIEdwC5hdXlDQg2f-BThCVZduv5rSyXNOSW6O7x",
         },
     },
     .paths = .{
