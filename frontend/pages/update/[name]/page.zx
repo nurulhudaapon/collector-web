@@ -5,18 +5,17 @@ const backend = @import("backend");
 pub fn Page(ctx: zx.PageContext) zx.Component {
     const name = ctx.request.param("name") orelse @panic("unreachable?");
 
-    // TODO: use if |_| else |e| when zx adds support for capturing else
-    backend.updateAll(ctx.arena, name) catch |e| {
-        return (
-            <div @allocator={ctx.allocator}>
-                ifError trying to update {name} cards: {@errorName(e)}
-            </div>
-        );
-    };
-
     return (
         <div @allocator={ctx.allocator}>
-            Updated every {name} card
+            {if (backend.fetch(ctx.arena, name)) |stats| (
+                <>
+                    Found {stats.card_count} new {name} cards in {stats.ms_elapsed}ms
+                </>
+            ) else |err| (
+                <>
+                    Error trying to update {name} cards: {@errorName(err)}
+                </>
+            )}
         </div>
     );
 }

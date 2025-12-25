@@ -10,5 +10,5 @@ export default {
 		"biome lint --write --no-errors-on-unmatched",
 	],
 	"*.zig": ["zlint --verbose", "zig fmt"],
-	"*.zx": "zig build zx -- fmt",
+	// "*.zx": "zig build zx -- fmt", // TODO: enable when formatter improves
 };

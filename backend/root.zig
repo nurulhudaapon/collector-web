@@ -35,18 +35,18 @@ pub fn allCards(allocator: Allocator, name: []const u8) ![]const database.Card {
         .findAll();
 }
 
-fn updateOne(allocator: Allocator, session: *database.Session, card: sdk.Card) !u64 {
-    const id: []const u8, const name: []const u8, const image: ?ptz.Image = switch (card) {
-        inline else => |c| .{ c.id, c.name, c.image },
-    };
+const InsertRes = struct {
+    new_row: bool,
+};
 
+fn insert(allocator: Allocator, session: *database.Session, brief: sdk.Card.Brief) !InsertRes {
     var allocating: std.Io.Writer.Allocating = .init(allocator);
     defer allocating.deinit();
 
-    if (image) |img| {
+    if (brief.image) |image| {
         allocating.clearRetainingCapacity();
 
-        img.toUrl(&allocating.writer, .high, .jpg) catch {
+        image.toUrl(&allocating.writer, .high, .jpg) catch {
             allocating.clearRetainingCapacity();
         };
     }
@@ -57,20 +57,32 @@ fn updateOne(allocator: Allocator, session: *database.Session, card: sdk.Card) !
         .{ "", false };
     defer if (free) allocator.free(url);
 
-    return session.insert(database.Card, .{
-        .card_id = id,
-        .name = name,
+    // ignore TCG Pocket cards
+    if (std.mem.indexOf(u8, url, "tcgp")) |_| {
+        return .{ .new_row = false };
+    }
+
+    _ = session.insert(database.Card, .{
+        .card_id = brief.id,
+        .name = brief.name,
         .image_url = url,
-    });
+    }) catch |err| return switch (err) {
+        // card existed, but let's not actually errors
+        error.UniqueViolation => .{ .new_row = false },
+        else => return err,
+    };
+
+    return .{ .new_row = true };
 }
 
-// TODO:
-//   run this in another thread or something, so that client sees output rendered instantly
-//       perhaps a websocket or something to show a "loading" state or the like
-//       alternatively, run this as a backend-only thing, not exposed in an endpoint
-//   rate limit and/or restrict which users can trigger it
-//   run each of the queries for detailed info inside `for (briefs) |brief|` in parallel
-pub fn updateAll(allocator: Allocator, name: []const u8) !void {
+const FetchRes = struct {
+    card_count: usize,
+    ms_elapsed: usize,
+};
+
+pub fn fetch(allocator: Allocator, name: []const u8) !FetchRes {
+    var timer: std.time.Timer = try .start();
+
     var session = try database.session(allocator);
     defer session.deinit();
 
@@ -81,17 +93,18 @@ pub fn updateAll(allocator: Allocator, name: []const u8) !void {
         },
     });
 
+    var n_cards: usize = 0;
     while (iterator.next() catch null) |briefs| {
         for (briefs) |brief| {
             defer brief.deinit();
 
-            const card: sdk.Card = try .get(
-                allocator,
-                .{ .id = brief.id },
-            );
-            defer card.deinit();
-
-            _ = try updateOne(allocator, &session, card);
+            const res = try insert(allocator, &session, brief);
+            if (res.new_row) n_cards += 1;
         }
     }
+
+    return .{
+        .card_count = n_cards,
+        .ms_elapsed = timer.read() / 1_000_000, // ns to ms
+    };
 }

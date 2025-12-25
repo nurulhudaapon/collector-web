@@ -14,9 +14,9 @@ pub fn Image(allocator: zx.Allocator, props: ImageProps) zx.Component {
     const card = props.card;
 
     return (
-        <div @allocator={allocator}>
-            <img src={card.image_url} alt={card.name} width={props.width} height={props.height} />
-            <p>{card.name}</p>
+        <div @allocator={allocator} class="flex flex-col items-center">
+            <img src={card.image_url} alt="image not found" aria-label={card.name} width={props.width} height={props.height} class="w-40 h-auto" />
+            <p class="mt-2 text-center">{card.name}</p>
         </div>
     );
 }
@@ -26,8 +26,6 @@ const CollectionProps = struct {
     name: []const u8,
 };
 
-// TODO:
-//   show owned/missing based on 'owned' table + user id
 pub fn Collection(allocator: zx.Allocator, props: CollectionProps) zx.Component {
     const cards = backend.allCards(allocator, props.name) catch |e| {
         return (
@@ -48,12 +46,12 @@ pub fn Collection(allocator: zx.Allocator, props: CollectionProps) zx.Component 
     defer if (false) allocator.free(url);
 
     return (
-        <div @allocator={allocator}>
+        <div @allocator={allocator} class="grid grid-cols-5 gap-4">
             {if (cards.len == 0) (
                 <>
                     No cards found with '{props.name}' in their name
                     <br />
-                    HINT: Try <a href={url}>fetching them</a>
+                    HINT: Try <a href={url} class="text-white">fetching them</a>
                 </>
             ) else (
                 for (cards) |card| (<Image card={card} />)

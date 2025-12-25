@@ -3,6 +3,8 @@ const zx = @import("zx");
 pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
     const appname = "collector";
 
+    // NOTE: header's height must match body's pt, and footer's with body's pb
+
     return (
         <html @allocator={ctx.arena} lang="en-US">
             <head>
@@ -10,15 +12,15 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
                 <link rel="stylesheet" href="/styles.css" />
             </head>
 
-            <header>
+            <header class="fixed top-0 left-0 w-full flex items-center justify-center z-50 h-16 bg-blue-900">
                 Welcome to <i>{appname}</i>, still under construction!
             </header>
 
-            <body>
+            <body class="w-full flex items-center justify-center pt-16 pb-16 bg-slate-950 text-white">
                 {children}
             </body>
 
-            <footer>
+            <footer class="fixed bottom-0 left-0 w-full flex items-center justify-center z-50 h-16 bg-blue-900">
                 favicon: <a href="https://iconscout.com/icons/pokemon" class="text-underline font-size-sm" target="_blank">pokemon</a> by <a href="https://iconscout.com/es/contributors/pankti-bhalodia/:assets" class="text-underline font-size-sm">Pankti Bhalodia</a> on <a href="https://iconscout.com" class="text-underline font-size-sm">IconScout</a>
             </footer>
         </html>

@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) !void {
 
     // put the server together
     const exe = b.addExecutable(.{
-        .name = "collector_web",
+        .name = "collector-web",
         .root_module = frontend,
         // work around self-hosted crashing on some code
         .use_llvm = true,
