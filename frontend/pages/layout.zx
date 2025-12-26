@@ -10,24 +10,6 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
 
     const common = "flex items-center justify-center";
 
-    const header_class = backend.printStr(
-        ctx.arena,
-        "fixed top-0 left-0 w-full h-{} bg-accent2 {s}",
-        .{header_height, common},
-    ) catch @panic("OOM");
-
-    const main_class = backend.printStr(
-        ctx.arena,
-        "w-full h-full pt-{} pb-{} {s}",
-        .{header_height, footer_height, common},
-    ) catch @panic("OOM");
-
-    const footer_class = backend.printStr(
-        ctx.arena,
-        "fixed bottom-0 left-0 w-full h-{} bg-accent2 {s}",
-        .{footer_height, common},
-    ) catch @panic("OOM");
-
     return (
         <html @allocator={ctx.arena} lang="en-US">
             <head>
@@ -37,15 +19,15 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
             </head>
 
             <body class="h-screen bg-primary text-secondary">
-                <header class={header_class}>
+                <header class=`fixed top-0 left-0 w-full h-{header_height} bg-accent2 {common}`>
                     Welcome to <a href="/">{appname}</a>, still under construction!
                 </header>
 
-                <main class={main_class}>
+                <main class=`w-full h-full pt-{header_height} pb-{footer_height} {common}`>
                     {children}
                 </main>
 
-                <footer class={footer_class}>
+                <footer class=`fixed bottom-0 left-0 w-full h-{footer_height} bg-accent2 {common}`>
                     Made with love, by <a href="https://github.com/elpekenin">@elpekenin</a>
                 </footer>
             </body>

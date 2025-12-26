@@ -74,7 +74,7 @@ pub fn build(b: *std.Build) !void {
 
     // access zx CLI
     const zx_run = b.addRunArtifact(zx.artifact("zx"));
-    const zx_step = b.step("zx", "invokes zx's CLI");
+    const zx_step = b.step("zx", "invoke zx's CLI");
     if (b.args) |args| zx_run.addArgs(args);
     zx_step.dependOn(&zx_run.step);
 

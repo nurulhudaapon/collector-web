@@ -17,7 +17,7 @@ pub fn init(allocator: Allocator) !void {
     try database.init(allocator);
 }
 
-pub fn printStr(allocator: Allocator, comptime fmt: []const u8, args: anytype) ![]const u8 {
+fn printStr(allocator: Allocator, comptime fmt: []const u8, args: anytype) ![]const u8 {
     var allocating: std.Io.Writer.Allocating = .init(allocator);
     defer allocating.deinit();
 
@@ -40,33 +40,50 @@ pub fn allCards(allocator: Allocator, name: []const u8) ![]const database.Card {
 }
 
 const InsertRes = struct {
-    new_row: bool,
+    variants_count: usize,
 };
 
 fn insert(allocator: Allocator, session: *database.Session, brief: sdk.Card.Brief) !InsertRes {
-    const image = brief.image orelse return error.ImageNotFound;
-
-    const url = try printStr(allocator, "{f}", .{image});
-    defer allocator.free(url);
+    const url, const free = if (brief.image) |image|
+        .{ try printStr(allocator, "{f}", .{image}), true }
+    else
+        .{ "", false }; // TODO: 404.png or something?
+    defer if (free) allocator.free(url);
 
     // ignore TCG Pocket cards
     if (std.mem.indexOf(u8, url, "tcgp")) |_| {
-        return .{ .new_row = false };
+        return .{ .variants_count = 0 };
     }
 
     _ = session.insert(database.Card, .{
         .card_id = brief.id,
         .name = brief.name,
         .image_url = url,
-    }) catch |err| return switch (err) {
-        // card existed, but let's not actually errors
-        error.UniqueViolation => .{ .new_row = false },
+    }) catch |err| switch (err) {
+        // card existed in DB already, lets not error out
+        error.UniqueViolation => {},
         else => return err,
     };
 
-    //TODO: parse variants
+    const card: sdk.Card = try .get(allocator, .{ .id = brief.id });
+    defer card.deinit();
 
-    return .{ .new_row = true };
+    const variants: []const ptz.VariantDetailed = switch (card) {
+        inline else => |info| info.variant_detailed,
+    } orelse return .{ .variants_count = 0 };
+
+    for (variants) |variant| {
+        _ = try session.insert(database.Variant, .{
+            .card_id = brief.id,
+            .type = variant.type,
+            .subtype = variant.subtype,
+            .size = variant.size,
+            .stamps = variant.stamp,
+            .foil = variant.foil,
+        });
+    }
+
+    return .{ .variants_count = variants.len };
 }
 
 const FetchRes = struct {
@@ -93,7 +110,7 @@ pub fn fetch(allocator: Allocator, name: []const u8) !FetchRes {
             defer brief.deinit();
 
             const res = try insert(allocator, &session, brief);
-            if (res.new_row) n_cards += 1;
+            n_cards += res.variants_count;
         }
     }
 

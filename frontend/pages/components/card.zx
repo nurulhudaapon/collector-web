@@ -36,7 +36,7 @@ pub fn Collection(allocator: zx.Allocator, props: CollectionProps) zx.Component 
                     <>
                         No cards found with '{props.name}' in their name
                         <br />
-                        HINT: Try <a href={backend.printStr(allocator, "/update/{s}", .{props.name}) catch ""}>fetching them</a>
+                        HINT: Try <a href=`/update/{props.name}`) catch ""}>fetching them</a>
                     </>
                 ) else (
                     <div class="grid grid-cols-5 gap-4">

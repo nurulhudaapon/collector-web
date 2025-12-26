@@ -1,4 +1,7 @@
 {
+	"tailwindCSS.includeLanguages": {
+		"zx": "html"
+	},
 	"[typescript]": {
 		"editor.formatOnSave": true,
 		"editor.defaultFormatter": "biomejs.biome"
@@ -6,5 +9,13 @@
 	"[typescriptreact]": {
 		"editor.formatOnSave": true,
 		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[zig]": {
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "ziglang.vscode-zig"
+	},
+	"[zx]": {
+		"editor.formatOnSave": false,
+		"editor.defaultFormatter": "nurulhudaapon.zx"
 	}
 }

@@ -13,20 +13,11 @@
             .hash = "ptz-0.0.1-CesFmibxAABzTsoT5jf0m6EPafqp5qtdQF_Yt97RPRwB",
         },
         .zx = .{
-            .url = "git+https://github.com/nurulhudaapon/zx#9746780091af1c40aa0dddbc6fb90f36d77e9b67",
-            .hash = "zx-0.1.0-dev.434-8okzKuK5dwAv3GLtMmF9QW7-TcD_EQ-B4uF9zR-NOxI6",
+            .url = "git+https://github.com/nurulhudaapon/zx#3bd6f0a9fdcc0856bd3ee12880f19d3c5f953e78",
+            .hash = "zx-0.1.0-dev.448-8okzKtIJfQCW_mD6wUSjlfapAzmb-gqTYLFtbhHjM7ts",
         },
     },
-    .paths = .{
-        "backend/",
-        "frontend/",
-        ".envrc",
-        ".zigversion",
-        "biome.json",
-        "build.zig",
-        "build.zig.zon",
-        "package.json",
-        "pnpm-lock.yaml",
-        "tsconfig.json",
-    },
+    // project not meant to be used as dependency
+    // as such, .paths is left unpopulated
+    .paths = .{""},
 }
