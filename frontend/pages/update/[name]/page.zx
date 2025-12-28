@@ -2,7 +2,7 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
-const Error = @import("../../components/error.zx").Error;
+const Error = @import("../../components/errors.zx").Error;
 
 pub fn Page(ctx: zx.PageContext) zx.Component {
     const name = ctx.request.param("name") orelse @panic("unreachable?");
@@ -11,12 +11,10 @@ pub fn Page(ctx: zx.PageContext) zx.Component {
         <div @allocator={ctx.allocator}>
             {if (backend.fetch(ctx.arena, name)) |stats| (
                 <>
-                    Found {stats.card_count} new {name} cards in {stats.ms_elapsed}ms
+                    Found {stats.card_count} new cards in {stats.ms_elapsed}ms
                 </>
-            ) else |e| (
-                <>
-                    Error trying to update {name} cards: <Error {e} />
-                </>
+            ) else |err| (
+                <Error message="trying to update cards" {err} />
             )}
         </div>
     );

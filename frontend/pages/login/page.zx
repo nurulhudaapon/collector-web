@@ -1,0 +1,37 @@
+const std = @import("std");
+
+const zx = @import("zx");
+
+const backend = @import("backend");
+
+const Error = @import("../components/errors.zx").Error;
+const UserCredentialsForm = @import("../components/forms.zx").UserCredentialsForm;
+
+pub fn Page(ctx: zx.PageContext) zx.Component {
+    // handle login attempt
+    if (ctx.request.method == .POST) {
+        const form = ctx.request.formData() catch |err| {
+            return (<Error message="form" {err} />);
+        };
+
+        const username = form.get("username") orelse {
+            return (<Error message="username" />);
+        };
+
+        const password = form.get("password") orelse {
+            return (<Error message="password" />);
+        };
+
+        const token = backend.auth.login(ctx.allocator, username, password) catch |err| {
+            return (<Error message="could not log in" {err} />);
+        };
+
+        backend.auth.setCookie(ctx, token) catch |err| {
+            return (<Error message="could not set token" {err} />);
+        };
+
+        return (<>Logged in!</>);
+    }
+
+    return (<UserCredentialsForm button_text="Log in" />);
+}

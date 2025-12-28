@@ -11,6 +11,7 @@ const Allocator = std.mem.Allocator;
 const ptz = @import("ptz");
 const sdk = ptz.Sdk(.en);
 
+pub const auth = @import("auth.zig");
 pub const database = @import("database.zig");
 
 pub fn init(allocator: Allocator) !void {
@@ -27,7 +28,7 @@ fn printStr(allocator: Allocator, comptime fmt: []const u8, args: anytype) ![]co
 }
 
 pub fn allCards(allocator: Allocator, name: []const u8) ![]const database.Card {
-    var session = try database.session(allocator);
+    var session = try database.getSession(allocator);
     defer session.deinit();
 
     const wildcard = try printStr(allocator, "%{s}%", .{name});
@@ -94,7 +95,7 @@ const FetchRes = struct {
 pub fn fetch(allocator: Allocator, name: []const u8) !FetchRes {
     var timer: std.time.Timer = try .start();
 
-    var session = try database.session(allocator);
+    var session = try database.getSession(allocator);
     defer session.deinit();
 
     var iterator = sdk.Card.all(allocator, .{

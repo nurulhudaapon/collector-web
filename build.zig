@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) !void {
         .imports = &.{
             .{ .name = "fridge", .module = fridge.module("fridge") },
             .{ .name = "ptz", .module = ptz.module("ptz") },
+            .{ .name = "zx", .module = zx.module("zx") },
         },
     });
 
@@ -70,13 +71,7 @@ pub fn build(b: *std.Build) !void {
         },
     };
 
-    try zx_build.init(b, exe, zx_options);
-
-    // access zx CLI
-    const zx_run = b.addRunArtifact(zx.artifact("zx"));
-    const zx_step = b.step("zx", "invoke zx's CLI");
-    if (b.args) |args| zx_run.addArgs(args);
-    zx_step.dependOn(&zx_run.step);
+    _ = try zx_build.init(b, exe, zx_options);
 
     // tests
     const tests = b.step("test", "run tests");

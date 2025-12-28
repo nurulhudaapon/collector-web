@@ -27,6 +27,6 @@ export default {
 	"*.zx": [
 		...common,
 		"bun tools/codespell.ts",
-		// "zig build zx -- fmt", // TODO: enable when formatter improves
+		// "zig build zx -- fmt",
 	],
 };

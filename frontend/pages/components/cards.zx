@@ -4,7 +4,7 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
-const Error = @import("error.zx").Error;
+const Error = @import("errors.zx").Error;
 
 const ImageProps = struct {
     card: backend.database.Card,
@@ -36,16 +36,16 @@ pub fn Collection(allocator: zx.Allocator, props: CollectionProps) zx.Component 
                     <>
                         No cards found with '{props.name}' in their name
                         <br />
-                        HINT: Try <a href=`/update/{props.name}`) catch ""}>fetching them</a>
+                        HINT: Try <a href=`/update/{props.name}`>fetching them</a>
                     </>
                 ) else (
                     <div class="grid grid-cols-5 gap-4">
                         {for (cards) |card| (<Image {card} />)}
                     </div>
                 )
-            ) else |e| (
+            ) else |err| (
                 <>
-                    Could not retrieve cards from database: <Error {e} />
+                    Could not retrieve cards from database: <Error {err} />
                 </>
             )}
         </div>

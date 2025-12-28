@@ -1,0 +1,23 @@
+const zx = @import("zx");
+
+const ErrorProps = struct {
+    message: ?[]const u8 = null,
+    err: ?anyerror = null,
+};
+
+pub fn Error(allocator: zx.Allocator, props: ErrorProps) zx.Component {
+    return (
+        <div @{allocator} class="text-accent3">
+            {if (props.message) |message| (
+                <>
+                    {message}
+                    {if (props.err) |_| (": ")}
+                </>
+            )}
+
+            {if (props.err) |err| (
+                <>{@errorName(err)}</>
+            )}
+        </div>
+    );
+}

@@ -18,11 +18,6 @@ pub const Owned = struct {
     owned: bool,
 };
 
-pub const User = struct {
-    id: u64,
-    name: []const u8,
-};
-
 pub const Variant = struct {
     id: u64,
     card_id: []const u8,
@@ -33,7 +28,7 @@ pub const Variant = struct {
     foil: ?[]const u8 = null,
 };
 
-const State = struct {
+const state = struct {
     var pool: ?fr.Pool(fr.SQLite3) = null;
 };
 
@@ -48,7 +43,7 @@ fn mkdir(allocator: std.mem.Allocator, dir_path: []const u8) !void {
 }
 
 pub fn init(allocator: Allocator) !void {
-    if (State.pool) |_| return;
+    if (state.pool) |_| return;
 
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
@@ -62,24 +57,24 @@ pub fn init(allocator: Allocator) !void {
     try mkdir(allocator, dir_path);
 
     const filename = try std.fs.path.joinZ(allocator, &.{ dir_path, "db.sqlite3" });
-    defer if (false) allocator.free(filename); // NOTE: seems like sqlite uses this internally without copying
+    // NOTE: seems like sqlite uses this internally without copying
+    defer if (false) allocator.free(filename);
 
     var db: Session = try .open(fr.SQLite3, allocator, .{ .filename = filename });
     defer db.deinit();
 
     try fr.migrate(&db, @embedFile("schema.sql"));
 
-    State.pool = try .init(
+    state.pool = try .init(
         allocator,
         .{ .max_count = 5 },
         .{ .filename = filename },
     );
 }
 
-pub fn session(allocator: Allocator) !Session {
-    if (State.pool) |_| {
-        // Pool type is pinned, prevent (potenial?) move with capture
-        return State.pool.?.getSession(allocator);
+pub fn getSession(allocator: Allocator) !Session {
+    if (state.pool) |*pool| {
+        return pool.getSession(allocator);
     }
 
     return error.DatabaseNotInit;

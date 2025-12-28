@@ -1,3 +1,5 @@
+const std = @import("std");
+
 const zx = @import("zx");
 
 const backend = @import("backend");
@@ -10,6 +12,11 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
 
     const common = "flex items-center justify-center";
 
+    const maybe_user = if (ctx.request.cookies().get("auth-token")) |token|
+        backend.auth.getUser(ctx.allocator, token) catch null
+    else
+        null;
+
     return (
         <html @allocator={ctx.arena} lang="en-US">
             <head>
@@ -20,7 +27,21 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
 
             <body class="h-screen bg-primary text-secondary">
                 <header class=`fixed top-0 left-0 w-full h-{header_height} bg-accent2 {common}`>
-                    Welcome to <a href="/">{appname}</a>, still under construction!
+                    Welcome to <a href="/">{appname}</a>, still under construction! --
+
+                    {if (maybe_user) |user| (
+                        <>
+                            Welcome back, {user.username}
+                            |
+                            <a href="/logout">Log out</a>
+                        </>
+                    ) else (
+                        <>
+                            <a href="/login">Log in</a>
+                            |
+                            <a href="/signin">Sign in</a>
+                        </>
+                    )}
                 </header>
 
                 <main class=`w-full h-full pt-{header_height} pb-{footer_height} {common}`>
