@@ -2,14 +2,14 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
-const Error = @import("../../components/errors.zx").Error;
+const Error = @import("../../components/error.zx").Error;
 
 pub fn Page(ctx: zx.PageContext) zx.Component {
     const name = ctx.request.param("name") orelse @panic("unreachable?");
 
     return (
         <div @allocator={ctx.allocator}>
-            {if (backend.fetch(ctx.arena, name)) |stats| (
+            {if (backend.collection.fetch(ctx.arena, name)) |stats| (
                 <>
                     Found {stats.card_count} new cards in {stats.ms_elapsed}ms
                 </>

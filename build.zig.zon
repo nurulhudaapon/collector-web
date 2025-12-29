@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .fridge = .{
-            .url = "git+https://github.com/cztomsik/fridge#edf00f4c346bcaf29d354b56f1befd3cf0d1291b",
-            .hash = "fridge-0.9.5-3GyIinW6AQCTX2gOwlrjOhpZxNqTnYx1Nd0Gh3XryPvn",
+            .path = "../fridge",
+            // .url = "git+https://github.com/cztomsik/fridge#edf00f4c346bcaf29d354b56f1befd3cf0d1291b",
         },
         .ptz = .{
             .url = "git+https://github.com/elpekenin/ptz#75f0622fba11e7b7c2c4b5104e5b7b3390b658a9",

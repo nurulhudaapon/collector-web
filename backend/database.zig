@@ -4,30 +4,6 @@ const Allocator = std.mem.Allocator;
 const fr = @import("fridge");
 pub const Session = fr.Session;
 
-pub const Card = struct {
-    id: u64,
-    card_id: []const u8,
-    name: []const u8,
-    image_url: []const u8,
-};
-
-pub const Owned = struct {
-    id: u64,
-    user_id: u64,
-    variant_id: u64,
-    owned: bool,
-};
-
-pub const Variant = struct {
-    id: u64,
-    card_id: []const u8,
-    type: []const u8,
-    subtype: ?[]const u8 = null,
-    size: ?[]const u8 = null,
-    stamps: ?[]const []const u8 = null,
-    foil: ?[]const u8 = null,
-};
-
 const state = struct {
     var pool: ?fr.Pool(fr.SQLite3) = null;
 };

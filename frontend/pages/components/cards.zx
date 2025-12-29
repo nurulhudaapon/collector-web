@@ -4,10 +4,10 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
-const Error = @import("errors.zx").Error;
+const Error = @import("error.zx").Error;
 
 const ImageProps = struct {
-    card: backend.database.Card,
+    card: backend.Card,
     width: []const u8 = "10%",
     height: []const u8 = "20%",
 };
@@ -31,7 +31,7 @@ const CollectionProps = struct {
 pub fn Collection(allocator: zx.Allocator, props: CollectionProps) zx.Component {
     return (
         <div @{allocator}>
-            {if (backend.allCards(allocator, props.name)) |cards| (
+            {if (backend.Card.list(allocator, props.name)) |cards| (
                 if (cards.len == 0) (
                     <>
                         No cards found with '{props.name}' in their name

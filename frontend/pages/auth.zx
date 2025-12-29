@@ -1,0 +1,79 @@
+const std = @import("std");
+
+const zx = @import("zx");
+
+const backend = @import("backend");
+
+const Error = @import("components/error.zig").Error;
+
+const Action = enum {
+    signin,
+    login,
+};
+
+const AuthFunction = *const fn (std.mem.Allocator, []const u8, []const u8) anyerror![]const u8;
+
+pub fn page(action: Action, ctx: zx.PageContext) zx.Component {
+    const action_str = switch (action) {
+        .signin => "Sign in",
+        .login => "Log in",
+    };
+
+    if (ctx.request.method == .POST) {
+        const form = ctx.request.formData() catch |err| {
+            return (<Error message="form" {err} />);
+        };
+
+        const username = form.get("username") orelse {
+            return (<Error message="username" />);
+        };
+
+        const password = form.get("password") orelse {
+            return (<Error message="password" />);
+        };
+
+        const function: AuthFunction = switch (action) {
+            .signin => backend.auth.signin,
+            .login => backend.auth.login,
+        };
+
+        const token = function(ctx.allocator, username, password) catch |err| {
+            return (<Error message="could not authenticate" {err} />);
+            // TODO:
+            // return (<Error message=`could not {action_str}` {err} />);
+        };
+
+        backend.auth.setCookie(ctx, token) catch |err| {
+            return (<Error message="could not set token" {err} />);
+        };
+
+        const message = switch (action) {
+            .signin => "Account created",
+            .login => "Logged in",
+        };
+
+        return (
+            <>
+                {message}
+            </>
+        );
+    }
+
+    return (
+        <form @allocator={ctx.allocator} method="post" class="flex flex-col gap-4 rounded-3xl">
+            <fieldset>
+                <legend>Username</legend>
+                <input id="username" name="username" type="text" required />
+            </fieldset>
+
+            <fieldset>
+                <legend>Password</legend>
+                <input id="password" name="password" type="password" required />
+            </fieldset>
+
+            <button type="submit" class="bg-accent3 rounded-3xl">
+                {action_str}
+            </button>
+        </form>
+    );
+}
