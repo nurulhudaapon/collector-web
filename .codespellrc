@@ -1,0 +1,5 @@
+# NOTE: using wildcard because lint-staged passes absolute paths
+#       so, ignoring a relative path doesn't work :)
+
+[codespell]
+skip = *bun.lock

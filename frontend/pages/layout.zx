@@ -4,11 +4,13 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
-const auth = @import("../utils/auth.zx");
-const auth_utils = @import("../components/auth.zx");
+const auth = @import("../components/auth.zx");
 
-pub const AuthButtons = auth_utils.AuthButtons;
-pub const AuthForm = auth_utils.Form;
+// zx's component system will import these from here
+// because of using them with `@client={.rendering}`
+// as such, it is not enough to mark them `pub` on "origin"
+pub const AuthButtons = auth.Buttons;
+pub const AuthForm = auth.Form;
 
 pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
     const appname = "collector";
@@ -46,7 +48,6 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
                     )}
                 </header>
 
-                <!-- Hidden until button pressed -->
                 <AuthForm @rendering={.client} />
 
                 <main class=`w-full h-full pt-{header_height} pb-{footer_height} {common}`>

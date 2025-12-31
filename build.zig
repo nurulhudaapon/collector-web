@@ -66,6 +66,7 @@ pub fn build(b: *std.Build) !void {
                 .output = b.path("{outdir}/public/styles.css"),
             }),
             zx_build.plugins.esbuild(b, .{
+                .bin = b.path("node_modules/.bin/esbuild"),
                 .input = b.path("frontend/main.ts"),
                 .output = b.path("{outdir}/assets/main.js"),
             }),

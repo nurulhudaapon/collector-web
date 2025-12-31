@@ -7,5 +7,5 @@ pub const options: zx.PageOptions = .{
 };
 
 pub fn Page(ctx: zx.PageContext) !zx.Component {
-    return auth.endpoint(.signin, ctx);
+    return auth.handle(.signin, ctx);
 }

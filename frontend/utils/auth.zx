@@ -5,6 +5,8 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 
+const AuthHandler = *const fn (std.mem.Allocator, []const u8, []const u8) anyerror![]const u8;
+
 pub const Action = enum {
     signin,
     login,
@@ -23,33 +25,29 @@ pub const Action = enum {
         };
     }
 
-    pub fn success(action: Action) []const u8 {
+    fn success(action: Action) []const u8 {
         return switch (action) {
             .signin => "Account created",
             .login => "Logged in",
         };
     }
+
+    pub fn authHandler(action: Action) AuthHandler {
+        return switch (action) {
+            .signin => backend.auth.signin,
+            .login => backend.auth.login,
+        };
+    }
 };
 
-
-
-const AuthHandler = *const fn (std.mem.Allocator, []const u8, []const u8) anyerror![]const u8;
-
-pub fn authHandler(action: Action) AuthHandler {
-    return switch (action) {
-        .signin => backend.auth.signin,
-        .login => backend.auth.login,
-    };
-}
-
-pub fn endpoint(action: Action, ctx: zx.PageContext) !zx.Component {
+pub fn handle(action: Action, ctx: zx.PageContext) !zx.Component {
     const form = try ctx.request.formData();
 
     const username = form.get("username") orelse return error.MissingUsername;
     const password = form.get("password") orelse return error.MissingPasword;
     const referrer = form.get("referrer") orelse return error.MissingReferrer;
 
-    const handler = authHandler(action);
+    const handler = action.authHandler();
     const token = try handler(ctx.allocator, username, password);
 
     try backend.auth.setCookie(ctx, token);

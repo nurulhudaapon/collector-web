@@ -2,12 +2,15 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const zx = @import("zx");
-const auth_utils = @import("../utils/auth.zx");
+const js = zx.Client.js;
+
 const auth = @import("../utils/auth.zx");
+const html = @import("../utils/html.zig");
 
-const id = "auth-dialog";
+const dialog_id = "auth-dialog";
+const referrer_id = "referrer-field";
 
-var selection: ?auth_utils.Action = null;
+var selection: ?auth.Action = null;
 
 fn showForm() void {
     // function does nothing unless compiling for wasm-freestanding
@@ -17,37 +20,49 @@ fn showForm() void {
     }
 
     const allocator = std.heap.wasm_allocator;
-    const js = zx.Client.js;
 
-    const document: zx.Client.bom.Document = .init(allocator);
-    const dialog = document.getElementById(id) catch return;
-
-    // Set the referrer hidden field to current pathname
-    if (document.getElementById("referrer") catch null) |referrer| {
-        const location: js.Object = js.global.get(js.Object, "location") catch return;
-        const pathname = location.getAlloc(js.String, allocator, "pathname") catch return;
-        referrer.ref.set("value", js.string(pathname)) catch return;
+    if (html.getElementById(allocator, dialog_id)) |dialog| {
+        dialog.ref.call(void, "showModal", .{}) catch {};
     }
 
-    dialog.ref.call(void, "showModal", .{}) catch return;
+    // Set the referrer hidden field to current pathname
+    if (html.getElementById(allocator, "referrer")) |referrer| {
+        if (js.global.get(js.Object, "location") catch null) |location| {
+            if (location.getAlloc(js.String, allocator, "pathname") catch null) |pathname| {
+                referrer.ref.set("value", js.string(pathname)) catch {};
+            }
+        }
+    }
 }
 
-fn setSignin(_: zx.EventContext) void {
+fn openSignin(_: zx.EventContext) void {
     selection = .signin;
     showForm();
 }
 
-fn setLogin(_: zx.EventContext) void {
+fn openLogin(_: zx.EventContext) void {
     selection = .login;
     showForm();
 }
 
-pub fn AuthButtons(allocator: zx.Allocator) zx.Component {
+fn close(_: zx.EventContext) void {
+    if (builtin.os.tag != .freestanding) {
+        return;
+    }
+
+    if (html.getElementById(std.heap.wasm_allocator, dialog_id)) |dialog| {
+        dialog.ref.call(void, "close", .{}) catch {};
+    }
+
+    selection = null;
+}
+
+pub fn Buttons(allocator: zx.Allocator) zx.Component {
     return (
         <div @{allocator}>
-            <button onclick={setLogin}>Log in</button>
+            <button onclick={openLogin}>Log in</button>
             |
-            <button onclick={setSignin}>Sign in</button>
+            <button onclick={openSignin}>Sign in</button>
         </div>
     );
 }
@@ -58,8 +73,8 @@ pub fn Form(allocator: zx.Allocator) zx.Component {
     const action = selection orelse .login;
 
     return (
-        <dialog @{allocator} {id} class="backdrop:bg-black/50 rounded-lg">
-            <form @{allocator} action={action.endpoint()} method="post" class="bg-secondary text-primary rounded-lg shadow-xl p-6 min-w-75 max-w-[95vw]">
+        <dialog @{allocator} id={dialog_id} class="backdrop:bg-black/50 rounded-lg">
+            <form action={action.endpoint()} method="post" class="bg-secondary text-primary rounded-lg shadow-xl p-6 min-w-75 max-w-[95vw]">
                 <fieldset>
                     <legend>Username</legend>
                     <input id="username" name="username" type="text" required />
@@ -70,31 +85,18 @@ pub fn Form(allocator: zx.Allocator) zx.Component {
                     <input id="password" name="password" type="password" required />
                 </fieldset>
 
-                <input id="referrer" name="referrer" type="hidden" value="" />
+                <input id={referrer_id} name="referrer" type="hidden" value="" />
 
                 <div class="flex gap-2 mt-4">
                     <button type="submit" class="bg-accent3 rounded-3xl px-4 py-2">
                         {action.text()}
                     </button>
-                    <button type="button" class="bg-gray-500 rounded-3xl px-4 py-2" onclick={closeDialog}>
+
+                    <button type="button" class="bg-gray-500 rounded-3xl px-4 py-2" onclick={close}>
                         Cancel
                     </button>
                 </div>
             </form>
         </dialog>
     );
-}
-
-fn closeDialog(_: zx.EventContext) void {
-    if (builtin.os.tag != .freestanding) {
-        return;
-    }
-
-    const allocator = std.heap.wasm_allocator;
-
-    const document: zx.Client.bom.Document = .init(allocator);
-    const dialog = document.getElementById(id) catch return;
-
-    dialog.ref.call(void, "close", .{}) catch return;
-    selection = null;
 }
