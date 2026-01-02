@@ -1,12 +1,22 @@
 const std = @import("std");
+const Build = std.Build;
+const Step = Build.Step;
 
 const zx = @import("zx");
 const ZxOptions = zx.ZxInitOptions;
 
-pub fn build(b: *std.Build) !void {
+fn addConfig(comptime T: type, b: *Build, options: *Step.Options, name: []const u8, default: T) void {
+    const value = b.option(T, name, name) orelse default;
+    options.addOption(T, name, value);
+}
+
+pub fn build(b: *Build) !void {
     // options
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const options = b.addOptions();
+    addConfig(usize, b, options, "max_fetch_threads", 5);
 
     // dependencies
     const fridge = b.dependency("fridge", .{
@@ -25,6 +35,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .imports = &.{
             .{ .name = "fridge", .module = fridge.module("fridge") },
+            .{ .name = "options", .module = options.createModule() },
             .{ .name = "ptz", .module = ptz.module("ptz") },
         },
     });
@@ -78,7 +89,7 @@ pub fn build(b: *std.Build) !void {
 
     // tests
     const tests = b.step("test", "run tests");
-    const test_runner: std.Build.Step.Compile.TestRunner = .{
+    const test_runner: Step.Compile.TestRunner = .{
         .mode = .simple,
         .path = b.path("lib/test_runner.zig"),
     };

@@ -7,42 +7,57 @@ const Allocator = std.mem.Allocator;
 const ptz = @import("ptz");
 const sdk = ptz.Sdk(.en);
 
+const options = @import("options");
+
 const database = @import("database.zig");
 const Card = @import("Card.zig");
 
-const ThreadState = struct {
-    count: usize,
-    finished: bool,
+const Task = struct {
+    const Int = u64;
+
+    const Id = enum(Int) {
+        const backing_integer = Int;
+
+        none,
+        _,
+    };
+
+    id: Id,
+    count: u64,
     timer: std.time.Timer,
 
-    fn init() !ThreadState {
+    fn init(id: Id) !Task {
         return .{
+            .id = id,
             .count = 0,
-            .finished = false,
             .timer = try .start(),
         };
     }
 
-    fn toState(self: *ThreadState) State {
+    fn toState(self: *Task) Status {
         return .{
             .count = self.count,
-            .finished = self.finished,
+            .finished = self.id == .none,
             .ms_elapsed = self.timer.read() / std.time.ns_per_ms,
         };
     }
+
+    const none: Task = .{
+        .id = .none,
+        .count = 0,
+        .timer = undefined,
+    };
 };
 
-const State = struct {
-    count: usize,
+const Status = struct {
+    count: u64,
     finished: bool,
-    ms_elapsed: usize,
+    ms_elapsed: u64,
 };
 
-const Map = std.AutoHashMap(u64, *ThreadState);
-
-const state = struct {
-    var rng: std.Random.DefaultPrng = .init(123);
-    var map: ?Map = null;
+const global = struct {
+    var counter: usize = 0;
+    var tasks: [options.max_fetch_threads]Task = @splat(.none);
 };
 
 // numbers should never get bigger than u16 (65k years is far away)
@@ -113,17 +128,11 @@ fn variants(allocator: Allocator, session: *database.Session, brief: sdk.Card.Br
     return card_variants.len;
 }
 
-fn entrypoint(allocator: Allocator, name: []const u8, id: u64) !void {
+fn entrypoint(allocator: Allocator, name: []const u8, task: *Task) !void {
     defer allocator.free(name);
 
-    const threads = try getMap();
-    assert(!threads.contains(id));
-
-    const thread = try allocator.create(ThreadState);
-    thread.* = try .init();
-    defer thread.finished = true;
-
-    try threads.put(id, thread);
+    assert(task.id != .none);
+    defer task.id = .none;
 
     var session = try database.getSession(allocator);
     defer session.deinit();
@@ -138,61 +147,38 @@ fn entrypoint(allocator: Allocator, name: []const u8, id: u64) !void {
     while (iterator.next() catch null) |briefs| {
         for (briefs) |brief| {
             defer brief.deinit();
-            thread.count += try variants(allocator, &session, brief);
+            task.count += try variants(allocator, &session, brief);
         }
     }
 }
 
-fn getMap() !*Map {
-    if (state.map) |*map| {
-        return map;
-    }
-
-    return error.FetchNotInit;
-}
-
-pub fn init(allocator: std.mem.Allocator) !void {
-    if (state.map) |_| return;
-
-    state.map = .init(allocator);
-}
-
-pub fn all(allocator: Allocator, name: []const u8) !u64 {
-    const threads = try getMap();
-
+pub fn all(allocator: Allocator, name: []const u8) !Task.Id.backing_integer {
     const copy = try allocator.dupe(u8, name);
     errdefer allocator.free(copy);
 
-    const id = blk: {
-        // avoid collisions
-        while (true) {
-            const id = state.rng.next();
-
-            if (!threads.contains(id)) {
-                break :blk id;
+    const task = blk: {
+        for (&global.tasks) |*task| {
+            if (task.id == .none) {
+                break :blk task;
             }
-        }
+        } else return error.ResourcesExhausted;
     };
 
-    var thread: std.Thread = try .spawn(.{}, entrypoint, .{ allocator, copy, id });
+    global.counter += 1;
+    task.* = try .init(@enumFromInt(global.counter));
+
+    var thread: std.Thread = try .spawn(.{}, entrypoint, .{ allocator, copy, task });
     thread.detach();
 
-    return id;
+    return @intFromEnum(task.id);
 }
 
-pub fn stats(id: u64) !State {
-    const threads = try getMap();
+pub fn status(id: Task.Id.backing_integer) !Status {
+    for (&global.tasks) |*task| {
+        if (@intFromEnum(task.id) == id) {
+            return task.toState();
+        }
+    }
 
-    const thread = threads.get(id) orelse return error.ThreadNotFound;
-    return thread.toState();
-}
-
-pub fn cleanup(id: u64) !void {
-    const threads = try getMap();
-
-    const thread = threads.get(id) orelse return error.ThreadNotFound;
-    if (!thread.finished) return error.ThreadNotFinished;
-
-    threads.allocator.destroy(thread);
-    assert(threads.remove(id));
+    return error.TaskNotFound;
 }

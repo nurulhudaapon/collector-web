@@ -10,14 +10,15 @@ fn Fetch(
         id: u64,
     },
 ) !zx.Component {
-    const stats = try backend.fetch.stats(props.id);
+    std.Thread.sleep(1.5 * std.time.ns_per_s);
+
+    const status = try backend.fetch.status(props.id);
 
     // TODO: update every now and then, with CSR
-    if (stats.finished) try backend.fetch.cleanup(props.id);
 
     return (
         <fragment @{allocator}>
-            Found {stats.count} cards in {stats.ms_elapsed}ms
+            Found {status.count} cards in {status.ms_elapsed}ms
         </fragment>
     );
 }

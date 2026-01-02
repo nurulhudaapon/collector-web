@@ -1,10 +1,10 @@
 const std = @import("std");
+const assert = std.debug.assert;
+
 const builtin = @import("builtin");
 
 const zx = @import("zx");
 const meta = @import("zx_meta").meta;
-
-const backend = @import("backend");
 
 const config: zx.App.Config = .{
     .server = .{},
@@ -15,11 +15,9 @@ pub fn main() !void {
     if (builtin.os.tag == .freestanding) return;
 
     var gpa: std.heap.DebugAllocator(.{}) = .{};
-    defer _ = gpa.deinit();
+    defer assert(gpa.deinit() == .ok);
 
     const allocator = gpa.allocator();
-
-    try backend.init(allocator);
 
     const app: *zx.App = try .init(allocator, config);
     defer app.deinit();

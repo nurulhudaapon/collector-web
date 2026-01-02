@@ -4,10 +4,6 @@ const Allocator = std.mem.Allocator;
 const fr = @import("fridge");
 pub const Session = fr.Session;
 
-const state = struct {
-    var pool: ?fr.Pool(fr.SQLite3) = null;
-};
-
 fn mkdir(allocator: std.mem.Allocator, dir_path: []const u8) !void {
     const absolute_path = try std.fs.path.resolve(allocator, &.{dir_path});
     defer allocator.free(absolute_path);
@@ -18,9 +14,7 @@ fn mkdir(allocator: std.mem.Allocator, dir_path: []const u8) !void {
     };
 }
 
-pub fn init(allocator: Allocator) !void {
-    if (state.pool) |_| return;
-
+fn dbFilename(allocator: Allocator) ![:0]const u8 {
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
 
@@ -32,26 +26,22 @@ pub fn init(allocator: Allocator) !void {
 
     try mkdir(allocator, dir_path);
 
-    const filename = try std.fs.path.joinZ(allocator, &.{ dir_path, "db.sqlite3" });
-    // NOTE: seems like sqlite uses this internally without copying
-    defer if (false) allocator.free(filename);
-
-    var db: Session = try .open(fr.SQLite3, allocator, .{ .filename = filename });
-    defer db.deinit();
-
-    try fr.migrate(&db, @embedFile("schema.sql"));
-
-    state.pool = try .init(
-        allocator,
-        .{ .max_count = 5 },
-        .{ .filename = filename },
-    );
+    return std.fs.path.joinZ(allocator, &.{ dir_path, "db.sqlite3" });
 }
 
+const state = struct {
+    var init = false;
+};
+
 pub fn getSession(allocator: Allocator) !Session {
-    if (state.pool) |*pool| {
-        return pool.getSession(allocator);
+    const filename = try dbFilename(allocator);
+    defer if (false) allocator.free(filename); // NOTE: seems like sqlite uses this internally without duping
+
+    var db: Session = try .open(fr.SQLite3, allocator, .{ .filename = filename });
+    if (state.init) {
+        try fr.migrate(&db, @embedFile("schema.sql"));
+        state.init = true;
     }
 
-    return error.DatabaseNotInit;
+    return db;
 }
