@@ -2,35 +2,57 @@ const std = @import("std");
 
 const zx = @import("zx");
 
-const backend = @import("backend");
+const api = @import("api");
 
-fn Fetch(
-    allocator: zx.Allocator,
-    props: struct {
-        id: u64,
-    },
-) !zx.Component {
-    std.Thread.sleep(1.5 * std.time.ns_per_s);
+const utils = @import("../../../utils.zig");
 
-    const status = try backend.fetch.status(props.id);
+var name: []const u8 = undefined;
+var id: u64 = undefined;
 
-    // TODO: update every now and then, with CSR
+var count: zx.Signal(u64) =.init(0);
+var ms: zx.Signal(u64) = .init(0);
+var updater: zx.Effect(u64) = .init(&count, update);
+
+fn update(_: u64) !void {
+    const reply = try utils.api.call(api.fetch.status, std.heap.wasm_allocator, "/api/fetch/status", .{
+        .id = id,
+    });
+
+    if (count.value != reply.count) {
+        count.set(reply.count);
+        ms.set(reply.ms_elapsed);
+    }
+}
+
+pub fn Stats(allocator: zx.Allocator) zx.Component {
+    utils.csr(@src());
+
+    const reply = utils.api.call(api.fetch.start, allocator, "/api/fetch/start", .{
+        .name = name,
+    }) catch |err| {
+        return (
+            <>
+                Error launching task in server: {@errorName(err)}
+            </>
+        );
+    };
+
+    id = reply.id;
+    count.notifyChange();
 
     return (
         <fragment @{allocator}>
-            Found {status.count} cards in {status.ms_elapsed}ms
+            Found {&count} cards in {&ms}ms
         </fragment>
     );
 }
 
 pub fn Page(ctx: zx.PageContext) !zx.Component {
-    const name = ctx.request.param("name") orelse return error.MissingName;
-
-    const id = try backend.fetch.all(ctx.allocator, name);
+    name = ctx.request.getParam("name") orelse return error.MissingName;
 
     return (
         <div @allocator={ctx.arena}>
-            <Fetch {id} />
+            <Stats @rendering={.client} />
         </div>
     );
 }

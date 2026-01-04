@@ -1,1 +1,1 @@
-pnpm lint-staged --fail-on-changes
+bun lint-staged --fail-on-changes

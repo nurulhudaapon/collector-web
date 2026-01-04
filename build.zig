@@ -15,8 +15,15 @@ pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // private modules
     const options = b.addOptions();
     addConfig(usize, b, options, "max_fetch_threads", 5);
+
+    const api = b.createModule(.{
+        .root_source_file = b.path("api/types.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     // dependencies
     const fridge = b.dependency("fridge", .{
@@ -34,6 +41,7 @@ pub fn build(b: *Build) !void {
         .target = target,
         .optimize = optimize,
         .imports = &.{
+            .{ .name = "api", .module = api },
             .{ .name = "fridge", .module = fridge.module("fridge") },
             .{ .name = "options", .module = options.createModule() },
             .{ .name = "ptz", .module = ptz.module("ptz") },
@@ -46,6 +54,7 @@ pub fn build(b: *Build) !void {
         .target = target,
         .optimize = optimize,
         .imports = &.{
+            .{ .name = "api", .module = api },
             .{ .name = "backend", .module = backend },
         },
     });
@@ -85,7 +94,14 @@ pub fn build(b: *Build) !void {
         },
     };
 
-    _ = try zx.init(b, exe, zx_options);
+    const zx_build = try zx.init(b, exe, zx_options);
+
+    // HACK: make "api" module available to wasm executable
+    if (zx_build.client_exe) |wasm| {
+        if (wasm.root_module.import_table.get("zx_components")) |components| {
+            components.addImport("api", api);
+        }
+    }
 
     // tests
     const tests = b.step("test", "run tests");

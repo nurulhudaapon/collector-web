@@ -3,6 +3,8 @@ const Allocator = std.mem.Allocator;
 
 const zx = @import("zx");
 
+const utils = @import("../utils.zig");
+
 fn stackTrace(allocator: std.mem.Allocator) ![]const u8 {
     var text: std.Io.Writer.Allocating = .init(allocator);
     defer text.deinit();
@@ -22,13 +24,17 @@ fn stackTrace(allocator: std.mem.Allocator) ![]const u8 {
 pub fn Error(ctx: zx.ErrorContext) zx.Component {
     const trace = stackTrace(ctx.arena) catch "";
 
+    if (utils.routing.isApi(ctx.request.url)) {
+        @panic("an API should never error, instead return 500 + {error: ...}");
+    }
+
     return (
         <div @allocator={ctx.arena} class="text-xl">
             <span class="text-accent3">Internal server error: {@errorName(ctx.err)}</span>
 
             <pre>{trace}</pre>
 
-            <a href={ctx.request.url.path}>Reload page</a>
+            <a href={ctx.request.url}>Reload page</a>
         </div>
     );
 }

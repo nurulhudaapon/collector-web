@@ -6,6 +6,15 @@ const builtin = @import("builtin");
 const zx = @import("zx");
 const meta = @import("zx_meta").meta;
 
+pub const std_options: std.Options = .{
+    .log_scope_levels = &.{
+        .{
+            .scope = .db_migrate,
+            .level = .warn,
+        },
+    },
+};
+
 const config: zx.App.Config = .{
     .server = .{},
     .meta = meta,

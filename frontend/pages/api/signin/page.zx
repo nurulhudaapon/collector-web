@@ -1,0 +1,29 @@
+const zx = @import("zx");
+
+const api = @import("api");
+const backend = @import("backend");
+
+const utils = @import("../../../utils.zig");
+
+pub const options: zx.PageOptions = .{
+    .methods = &.{ .POST },
+};
+
+pub fn Page(ctx: zx.PageContext) !zx.Component {
+    if (utils.api.getInput(api.signin, ctx)) |input| {
+        defer input.deinit();
+        try utils.api.writeOutput(
+            api.signin,
+            ctx,
+            backend.auth.signin(
+                ctx.arena,
+                input.value.username,
+                input.value.password,
+            ),
+        );
+    } else |err| {
+        try utils.api.writeError(ctx, err);
+    }
+
+    return (<></>);
+}

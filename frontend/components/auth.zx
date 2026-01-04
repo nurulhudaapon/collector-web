@@ -1,98 +1,139 @@
 const std = @import("std");
-const builtin = @import("builtin");
 
 const zx = @import("zx");
 const js = zx.Client.js;
 
+const api = @import("api");
+
 const utils = @import("../utils.zig");
 
 const dialog_id = "auth-dialog";
-const form_id = "auth-form";
-const referrer_id = "referrer-field";
 const submit_id = "submit-button";
 
 const Action = enum {
     signin,
     login,
-
-    fn endpoint(action: Action) []const u8 {
-        return switch (action) {
-            .signin => "/signin",
-            .login => "/login",
-        };
-    }
-
-    fn text(action: Action) []const u8 {
-        return switch (action) {
-            .signin => "Sign in",
-            .login => "Log in",
-        };
-    }
 };
 
-fn showForm(action: Action) void {
-    // function does nothing unless compiling for wasm-freestanding
-    // that is: code only runs on client side
-    if (builtin.os.tag != .freestanding) @panic("intended for CSR");
+const UserData = struct {
+    username: []const u8,
+    token: []const u8,
+};
 
+var action: ?Action = null;
+var user_data: ?UserData = null;
+
+fn showForm() void {
     const allocator = std.heap.wasm_allocator;
 
+    const a = action orelse @panic("action is null");
+
     if (utils.html.getElementById(allocator, dialog_id)) |dialog| {
-        dialog.ref.call(void, "showModal", .{}) catch {};
-    }
-
-    if (utils.html.getElementById(allocator, form_id)) |form| {
-        form.ref.set("action", js.string(action.endpoint())) catch {};
-    }
-
-    if (utils.html.getElementById(allocator, "referrer")) |referrer| {
-        if (js.global.get(js.Object, "location") catch null) |location| {
-            if (location.getAlloc(js.String, allocator, "pathname") catch null) |pathname| {
-                referrer.ref.set("value", js.string(pathname)) catch {};
-            }
-        }
+        dialog.ref.call(void, "showModal", .{}) catch return;
     }
 
     if (utils.html.getElementById(allocator, submit_id)) |submit| {
-        submit.ref.set("innerText", js.string(action.text())) catch {};
+        const text = switch (a) {
+            .signin => "Sign in",
+            .login => "Log in",
+        };
+        submit.ref.set("innerText", js.string(text)) catch return;
     }
-
 }
 
 fn openSignin(_: zx.EventContext) void {
-    showForm(.signin);
+    action = .signin;
+    showForm();
 }
 
 fn openLogin(_: zx.EventContext) void {
-    showForm(.login);
+    action = .login;
+    showForm();
 }
 
-fn close(_: zx.EventContext) void {
-    if (builtin.os.tag != .freestanding) @panic("intended for CSR");
+fn authenticate(_: zx.EventContext) void {
+    const allocator = std.heap.wasm_allocator;
+
+    const location = js.global.get(js.Object, "location") catch return;
+    const referrer = location.getAlloc(js.String, allocator, "pathname") catch return;
+
+    const username_input = utils.html.getElementById(allocator, "username") orelse return;
+    const password_input = utils.html.getElementById(allocator, "password") orelse return;
+
+    const username = username_input.ref.getAlloc(js.String, allocator, "innerText") catch return;
+    const password = password_input.ref.getAlloc(js.String, allocator, "innerText") catch return;
+
+    const response = switch (action orelse @panic("action is null")) {
+        .signin => utils.api.call(api.signin, allocator, "/api/signin", .{
+                .username = username,
+                .password = password,
+                .referrer = referrer,
+            },
+        ) catch return,
+        .login => utils.api.call(api.login, allocator, "/api/login", .{
+                .username = username,
+                .password = password,
+                .referrer = referrer,
+            },
+        ) catch return,
+    };
+
+    user_data = .{
+        .username = username,
+        .token = response.token,
+    };
+}
+
+fn logout(_: zx.EventContext) void {
+    const allocator = std.heap.wasm_allocator;
+
+    const response = utils.api.call(api.logout, allocator, "/api/logout", .{
+        .token = if (user_data) |data| data.token else @panic("user_data is null"),
+    }) catch return;
+
+    if (response.ok == 1) {
+        user_data = null;
+    }
+
+    // TODO: redirect
+}
+
+fn closeForm(_: zx.EventContext) void {
+    action = null;
 
     if (utils.html.getElementById(std.heap.wasm_allocator, dialog_id)) |dialog| {
-        dialog.ref.call(void, "close", .{}) catch {};
+        dialog.ref.call(void, "close", .{}) catch return;
     }
 }
 
 pub fn Buttons(allocator: zx.Allocator) zx.Component {
-    if (builtin.os.tag != .freestanding) @panic("intended for CSR");
+    utils.csr(@src());
 
     const class = "text-primary bg-secondary rounded-md";
+
     return (
         <div @{allocator}>
-            <button class=`{class} mr-2` onclick={openLogin}>Log in</button>
-            <button {class} onclick={openSignin}>Sign in</button>
+            {if (user_data) |data| (
+                <>
+                    Welcome back, {data.username}
+                    <button {class} onclick={logout}>Log out</button>
+                </>
+            ) else (
+                <>
+                    <button class=`{class} mr-2` onclick={openLogin}>Log in</button>
+                    <button {class} onclick={openSignin}>Sign in</button>
+                </>
+            )}
         </div>
     );
 }
 
 pub fn Form(allocator: zx.Allocator) zx.Component {
-    if (builtin.os.tag != .freestanding) @panic("intended for CSR");
+    utils.csr(@src());
 
     return (
-        <dialog @{allocator} id={dialog_id} class="backdrop:bg-black/50 rounded-lg">
-            <form id={form_id} action="/404" method="post" class="bg-secondary text-primary rounded-lg shadow-xl p-6 min-w-75 max-w-[95vw]">
+        <dialog @{allocator} id={dialog_id} class="backdrop:bg-black/50 rounded-lg ">
+            <div class="bg-secondary text-primary rounded-lg shadow-xl p-6 min-w-75 max-w-[95vw]">
                 <fieldset>
                     <legend>Username</legend>
                     <input id="username" name="username" type="text" required />
@@ -103,18 +144,14 @@ pub fn Form(allocator: zx.Allocator) zx.Component {
                     <input id="password" name="password" type="password" required />
                 </fieldset>
 
-                <input id={referrer_id} name="referrer" type="hidden" value="" />
-
                 <div class="flex gap-2 mt-4">
-                    <button id={submit_id} type="submit" class="bg-accent3 rounded-3xl px-4 py-2">
-                        Send bug report if you see this
-                    </button>
+                    <button id={submit_id} type="button" onclick={authenticate} class="bg-accent3 rounded-3xl px-4 py-2" />
 
-                    <button type="button" class="bg-gray-500 rounded-3xl px-4 py-2" onclick={close}>
+                    <button type="button" class="bg-gray-500 rounded-3xl px-4 py-2" onclick={closeForm}>
                         Cancel
                     </button>
                 </div>
-            </form>
+            </div>
         </dialog>
     );
 }

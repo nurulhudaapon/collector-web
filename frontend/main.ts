@@ -1,2 +1,3 @@
-import { init } from 'ziex/wasm';
+import { init } from "ziex/wasm";
+
 init();

@@ -7,6 +7,7 @@ const Allocator = std.mem.Allocator;
 const ptz = @import("ptz");
 const sdk = ptz.Sdk(.en);
 
+const api = @import("api");
 const options = @import("options");
 
 const database = @import("database.zig");
@@ -34,25 +35,11 @@ const Task = struct {
         };
     }
 
-    fn toState(self: *Task) Status {
-        return .{
-            .count = self.count,
-            .finished = self.id == .none,
-            .ms_elapsed = self.timer.read() / std.time.ns_per_ms,
-        };
-    }
-
     const none: Task = .{
         .id = .none,
         .count = 0,
         .timer = undefined,
     };
-};
-
-const Status = struct {
-    count: u64,
-    finished: bool,
-    ms_elapsed: u64,
 };
 
 const global = struct {
@@ -152,7 +139,7 @@ fn entrypoint(allocator: Allocator, name: []const u8, task: *Task) !void {
     }
 }
 
-pub fn all(allocator: Allocator, name: []const u8) !Task.Id.backing_integer {
+pub fn run(allocator: Allocator, name: []const u8) !api.fetch.start.Output {
     const copy = try allocator.dupe(u8, name);
     errdefer allocator.free(copy);
 
@@ -170,13 +157,19 @@ pub fn all(allocator: Allocator, name: []const u8) !Task.Id.backing_integer {
     var thread: std.Thread = try .spawn(.{}, entrypoint, .{ allocator, copy, task });
     thread.detach();
 
-    return @intFromEnum(task.id);
+    return .{
+        .id = @intFromEnum(task.id),
+    };
 }
 
-pub fn status(id: Task.Id.backing_integer) !Status {
+pub fn status(id: Task.Id.backing_integer) !api.fetch.status.Output {
     for (&global.tasks) |*task| {
-        if (@intFromEnum(task.id) == id) {
-            return task.toState();
+        if (task.id != .none and @intFromEnum(task.id) == id) {
+            return .{
+                .count = task.count,
+                .finished = task.id == .none,
+                .ms_elapsed = task.timer.read() / std.time.ns_per_ms,
+            };
         }
     }
 

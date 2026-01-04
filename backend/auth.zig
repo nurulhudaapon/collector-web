@@ -5,9 +5,9 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const database = @import("database.zig");
+const api = @import("api");
 
-const zx = @import("zx");
+const database = @import("database.zig");
 
 const salt_len = 8;
 const hashed_len = 128;
@@ -61,7 +61,7 @@ fn createTokenFor(allocator: Allocator, session: *database.Session, user_id: u64
     return token.value;
 }
 
-pub fn signin(allocator: Allocator, username: []const u8, password: []const u8) ![]const u8 {
+pub fn signin(allocator: Allocator, username: []const u8, password: []const u8) !api.signin.Output {
     var session = try database.getSession(allocator);
     defer session.deinit();
 
@@ -89,10 +89,16 @@ pub fn signin(allocator: Allocator, username: []const u8, password: []const u8) 
         secret_id,
     ) catch |e| std.log.err("{t}", .{e});
 
-    return createTokenFor(allocator, &session, user_id);
+    return .{
+        .token = try createTokenFor(
+            allocator,
+            &session,
+            user_id,
+        ),
+    };
 }
 
-pub fn login(allocator: Allocator, username: []const u8, password: []const u8) ![]const u8 {
+pub fn login(allocator: Allocator, username: []const u8, password: []const u8) !api.login.Output {
     var session = try database.getSession(allocator);
     defer session.deinit();
 
@@ -110,14 +116,24 @@ pub fn login(allocator: Allocator, username: []const u8, password: []const u8) !
 
     if (!std.mem.eql(u8, &hashed, secret.hashed_password)) return error.InvalidCredentials;
 
-    return createTokenFor(allocator, &session, user.id);
+    return .{
+        .token = try createTokenFor(
+            allocator,
+            &session,
+            user.id,
+        ),
+    };
 }
 
-pub fn logout(allocator: Allocator, token: []const u8) !void {
+pub fn logout(allocator: Allocator, token: []const u8) !api.logout.Output {
     var session = try database.getSession(allocator);
     defer session.deinit();
 
     try session.query(Token).where("value", token).delete().exec();
+
+    return .{
+        .ok = 1,
+    };
 }
 
 pub fn getUser(allocator: Allocator, token_value: []const u8) !?User {

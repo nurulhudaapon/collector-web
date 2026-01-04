@@ -1,5 +1,7 @@
+[codespell]
 # NOTE: using wildcard because lint-staged passes absolute paths
 #       so, ignoring a relative path doesn't work :)
-
-[codespell]
 skip = *bun.lock
+# avoid breaking JS test
+# NOTE: has to be spelled in lowercase
+ignore-words-list = afterall

@@ -4,44 +4,45 @@ const Allocator = std.mem.Allocator;
 const fr = @import("fridge");
 pub const Session = fr.Session;
 
-fn mkdir(allocator: std.mem.Allocator, dir_path: []const u8) !void {
-    const absolute_path = try std.fs.path.resolve(allocator, &.{dir_path});
-    defer allocator.free(absolute_path);
-
-    std.fs.accessAbsolute(absolute_path, .{}) catch |e| switch (e) {
-        error.FileNotFound => try std.fs.makeDirAbsolute(absolute_path),
-        else => return e,
-    };
-}
-
-fn dbFilename(allocator: Allocator) ![:0]const u8 {
+fn appDataDir(allocator: Allocator) ![]const u8 {
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
 
-    const appdir = args.next() orelse return error.MissingExeArg;
-    const appname = std.fs.path.basename(appdir);
+    const exe_path = args.next() orelse @panic("missing exe arg");
+    const exe_name = std.fs.path.basename(exe_path);
 
-    const dir_path = try std.fs.getAppDataDir(allocator, appname);
-    defer allocator.free(dir_path);
-
-    try mkdir(allocator, dir_path);
-
-    return std.fs.path.joinZ(allocator, &.{ dir_path, "db.sqlite3" });
+    return std.fs.getAppDataDir(allocator, exe_name);
 }
 
 const state = struct {
-    var init = false;
+    var pool: ?fr.Pool(fr.SQLite3) = null;
 };
 
 pub fn getSession(allocator: Allocator) !Session {
-    const filename = try dbFilename(allocator);
-    defer if (false) allocator.free(filename); // NOTE: seems like sqlite uses this internally without duping
+    if (state.pool) |*pool| {
+        return pool.getSession(allocator);
+    } else {
+        errdefer state.pool = null;
 
-    var db: Session = try .open(fr.SQLite3, allocator, .{ .filename = filename });
-    if (state.init) {
-        try fr.migrate(&db, @embedFile("schema.sql"));
-        state.init = true;
+        const options: fr.SQLite3.Options = if (std.process.hasEnvVar(allocator, "__TESTING__") catch false)
+            .{
+                .filename = ":memory:",
+            }
+        else
+            .{
+                // NOTE: not freeing because it seems like sqlite doesn't dupe it
+                .dir = try appDataDir(allocator),
+                .filename = "db.sqlite3",
+            };
+
+        state.pool = try .init(allocator, .{ .max_count = 10 }, options);
+        errdefer state.pool.?.deinit();
+
+        var session = try getSession(allocator);
+        errdefer session.deinit();
+
+        try fr.migrate(&session, @embedFile("schema.sql"));
+
+        return session;
     }
-
-    return db;
 }

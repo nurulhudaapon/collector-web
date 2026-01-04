@@ -5,6 +5,7 @@ const zx = @import("zx");
 const backend = @import("backend");
 
 const auth = @import("../components/auth.zx");
+const utils = @import("../utils.zig");
 
 // zx's component system will import these from here
 // because of using them with `@client={.rendering}`
@@ -12,16 +13,19 @@ const auth = @import("../components/auth.zx");
 pub const AuthButtons = auth.Buttons;
 pub const AuthForm = auth.Form;
 
+const appname = "collector";
+
+const header_height = 16;
+const footer_height = 16;
+
 pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
-    const appname = "collector";
-
-    const header_height = 16;
-    const footer_height = 16;
-
-    const maybe_user = if (ctx.request.cookies().get("auth-token")) |token|
-        backend.auth.getUser(ctx.arena, token) catch null
-    else
-        null;
+    if (utils.routing.isApi(ctx.request.url)) {
+        return (
+            <>
+                {children}
+            </>
+        );
+    }
 
     return (
         <html @allocator={ctx.arena} lang="en-US">
@@ -38,14 +42,7 @@ pub fn Layout(ctx: zx.LayoutContext, children: zx.Component) zx.Component {
                     </div>
 
                     <div class="w-2/3 p-2 justify-items-end">
-                    {if (maybe_user) |user| (
-                        <div>
-                            Welcome back, {user.username}
-                            <a href="/logout" class="text-primary bg-secondary ml-2 rounded-md hover:no-underline">Log out</a>
-                        </div>
-                    ) else (
                         <AuthButtons @rendering={.client} />
-                    )}
                     </div>
                 </header>
 

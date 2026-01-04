@@ -1,7 +1,4 @@
-/**
- * @filename: lint-staged.config.js
- * @type {import('lint-staged').Configuration}
- */
+// @ts-check
 
 const common = [
 	"bun tools/end-of-file.ts",
@@ -9,6 +6,9 @@ const common = [
 	"bun tools/codespell.ts",
 ];
 
+/**
+ * @type {import('lint-staged').Configuration}
+ */
 export default {
 	"*": common,
 	"*.{mjs,js,json,ts,tsx}": [
@@ -17,16 +17,9 @@ export default {
 		"biome format --write --no-errors-on-unmatched",
 		"biome lint --write --no-errors-on-unmatched",
 	],
-	"*.zig": [
-		...common,
-		"zlint --verbose",
-		"zig fmt",
-		// this makes the test run once, rather than once per file
-		() => "zig build test",
-	],
+	"*.zig": [...common, "zlint --verbose", "zig fmt"],
 	"*.zx": [
 		...common,
-		"bun tools/codespell.ts",
 		// "zig build zx -- fmt",
 	],
 };
