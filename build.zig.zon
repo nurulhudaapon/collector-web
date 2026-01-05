@@ -8,9 +8,9 @@
             .url = "git+https://github.com/cztomsik/fridge#5b06d09627f4bf6066210a46138f4833777098bf",
             .hash = "fridge-0.9.5-3GyIipe6AQCJI6OmD4dEQaWYWyc5Kvx5GNPKAP3L-D6l",
         },
-        .ptz = .{
-            .url = "git+https://github.com/elpekenin/ptz#d25c7b4b3b5ce722fde258479ab68aa61dda7664",
-            .hash = "ptz-0.0.1-CesFmnTxAAAdrUF7So1MExNPnHUnm2ImkYNUZGXNxlQp",
+        .sdk = .{
+            .url = "git+https://github.com/tcgdex/zig-sdk#5d45a4e6dfbf011df337bcb88877161d0476c768",
+            .hash = "sdk-0.0.1-WSv1A8bxAADyYl7wSf9KthP7qoqS8sur8kb1nkxMuPrY",
         },
         .zx = .{
             .url = "git+https://github.com/nurulhudaapon/zx#93785718d2dd895c7b7f38afc60e7e6e579b2644",

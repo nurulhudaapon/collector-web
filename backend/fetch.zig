@@ -4,8 +4,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const ptz = @import("ptz");
-const sdk = ptz.Sdk(.en);
+const sdk = @import("sdk").For(.en);
 
 const api = @import("api");
 const options = @import("options");
@@ -97,7 +96,7 @@ fn variants(allocator: Allocator, session: *database.Session, brief: sdk.Card.Br
     });
 
     // TODO: remove this, error out if variants aren't present
-    const card_variants: []const ptz.VariantDetailed = switch (card) {
+    const card_variants: []const sdk.VariantDetailed = switch (card) {
         inline else => |info| info.variant_detailed,
     } orelse return 1;
 

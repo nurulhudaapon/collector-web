@@ -30,7 +30,7 @@ pub fn build(b: *Build) !void {
         // embed SQLite in binary
         .bundle = true,
     });
-    const ptz = b.dependency("ptz", .{
+    const sdk = b.dependency("sdk", .{
         .target = target,
         .optimize = optimize,
     });
@@ -44,7 +44,7 @@ pub fn build(b: *Build) !void {
             .{ .name = "api", .module = api },
             .{ .name = "fridge", .module = fridge.module("fridge") },
             .{ .name = "options", .module = options.createModule() },
-            .{ .name = "ptz", .module = ptz.module("ptz") },
+            .{ .name = "sdk", .module = sdk.module("sdk") },
         },
     });
 
