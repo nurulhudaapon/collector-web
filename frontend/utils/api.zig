@@ -1,19 +1,41 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 const zx = @import("zx");
 const js = zx.Client.js;
 
-fn zigToJs(zig: anytype) !js.Object {
-    var object: js.Value = .init(js.Object);
+const utils = @import("../utils.zig");
+
+// HACK: allow this code to compile (does nothing) on server side
+const Value = if (utils.inClient())
+    js.Value
+else
+    u0;
+
+const Object = if (utils.inClient())
+    js.Object
+else
+    struct { value: Value };
+
+fn consoleLog(args: anytype) !void {
+    const console: js.Object = try js.global.get(js.Object, "console");
+    defer console.deinit();
+
+    try console.call(void, "log", args);
+}
+
+fn zigToJs(allocator: std.mem.Allocator, zig: anytype) !js.Object {
+    // allocate an empty JS object
+    var object = try js.global.callAlloc(js.Object, allocator, "Object", .{});
 
     inline for (std.meta.fields(@TypeOf(zig))) |field| {
         const T = field.type;
-        const field_value = @field(zig, field.name);
+        const field_value: T = @field(zig, field.name);
 
-        const value: js.Value = switch (T) {
+        const value: Value = switch (T) {
             []const u8 => .init(js.string(field_value)),
             else => switch (@typeInfo(T)) {
-                .@"struct" => (try zigToJs(field_value)).value,
+                .@"struct" => (try zigToJs(allocator, field_value)).value,
                 else => .init(field_value),
             },
         };
@@ -21,7 +43,7 @@ fn zigToJs(zig: anytype) !js.Object {
         try object.set(field.name, value);
     }
 
-    return .{ .value = object };
+    return object;
 }
 
 // TODO: support nested structs
@@ -75,21 +97,94 @@ pub fn writeOutput(comptime api: type, ctx: zx.PageContext, value: anyerror!api.
     try fmt.format(&writer.new_interface);
 }
 
+const Awaiter = union(enum) {
+    waiting,
+    value: Object,
+    reason: Object,
+};
+
+var awaiter: Awaiter = .waiting;
+
+export fn fulfill(value: Value) void {
+    awaiter.value = .{ .value = value };
+}
+
+export fn reject(reason: Value) void {
+    awaiter.reason = .{ .value = reason };
+}
+
 /// Helper to call an api from client
-pub fn call(comptime api: type, allocator: std.mem.Allocator, url: []const u8, body: api.Input) !api.Output {
-    const options = try zigToJs(.{
-        .method = js.string("POST"),
-        .body = body,
+pub fn execute(comptime api: type, allocator: std.mem.Allocator, url: []const u8, body: api.Input) !api.Output {
+    if (!utils.inClient()) return error.NotInBrowser;
+
+    const JSON = try js.global.get(js.Object, "JSON");
+    defer JSON.deinit();
+
+    const js_body = try zigToJs(allocator, body);
+    defer js_body.deinit();
+
+    const body_str: []const u8 = try JSON.callAlloc(
+        js.String,
+        allocator,
+        "stringify",
+        .{
+            js_body,
+        },
+    );
+
+    const options = try zigToJs(allocator, .{
+        .method = @as([]const u8, "POST"),
+        .body = body_str,
         .headers = .{
-            .@"Content-Type" = js.string("application/json"),
+            .@"Content-Type" = @as([]const u8, "application/json"),
         },
     });
+    defer options.deinit();
 
-    const response: js.Object = try js.global.call(js.Object, "fetch", .{
-        url,
-        options,
-    });
+    const fetch = try js.global.callAlloc(
+        js.Object,
+        allocator,
+        "fetch",
+        .{
+            js.string(url),
+            options,
+        },
+    );
+    defer fetch.deinit();
+    assert(awaiter == .waiting);
+    try fetch.call(void, "then", .{ fulfill, reject });
 
-    const json: js.Object = try response.call(js.Object, "json", .{});
+    // wait for `fetch` to finish
+    const response = wait: while (true) {
+        switch (awaiter) {
+            .waiting => {},
+            .value => |val| break :wait val,
+            .reason => return error.FetchFailed, // TODO: handle better
+        }
+    };
+    awaiter = .waiting;
+    try consoleLog(.{ js.string("response:"), response });
+
+    // FIXME: remove
+    const clean: []const u8 = try response.callAlloc(
+        js.String,
+        allocator,
+        "replace",
+        .{
+            js.string("<!DOCTYPE html>"),
+            js.string(""),
+        },
+    );
+
+    const json = try JSON.callAlloc(
+        js.Object,
+        allocator,
+        "parse",
+        .{
+            js.string(clean),
+        },
+    );
+    defer json.deinit();
+
     return jsToZig(api.Output, allocator, json);
 }

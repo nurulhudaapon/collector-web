@@ -8,6 +8,8 @@ pub fn getElementById(allocator: std.mem.Allocator, id: []const u8) ?HTMLElement
     const document: bom.Document = .init(allocator);
 
     return document.getElementById(id) catch |err| switch (err) {
-        error.ElementNotFound => null,
+        error.NotInBrowser,
+        error.ElementNotFound,
+        => null,
     };
 }

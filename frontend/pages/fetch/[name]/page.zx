@@ -14,9 +14,14 @@ var ms: zx.Signal(u64) = .init(0);
 var updater: zx.Effect(u64) = .init(&count, update);
 
 fn update(_: u64) !void {
-    const reply = try utils.api.call(api.fetch.status, std.heap.wasm_allocator, "/api/fetch/status", .{
-        .id = id,
-    });
+    const reply = try utils.api.execute(
+        api.fetch.status,
+        std.heap.wasm_allocator,
+        "/api/fetch/status",
+        .{
+            .id = id,
+        },
+    );
 
     if (count.value != reply.count) {
         count.set(reply.count);
@@ -25,11 +30,18 @@ fn update(_: u64) !void {
 }
 
 pub fn Stats(allocator: zx.Allocator) zx.Component {
-    utils.csr(@src());
+    if (!utils.inClient()) {
+        return (<></>);
+    }
 
-    const reply = utils.api.call(api.fetch.start, allocator, "/api/fetch/start", .{
-        .name = name,
-    }) catch |err| {
+    const reply = utils.api.execute(
+        api.fetch.start,
+        allocator,
+        "/api/fetch/start",
+        .{
+            .name = name,
+        },
+    ) catch |err| {
         return (
             <>
                 Error launching task in server: {@errorName(err)}

@@ -60,17 +60,25 @@ fn authenticate(_: zx.EventContext) void {
     const username_input = utils.html.getElementById(allocator, "username") orelse return;
     const password_input = utils.html.getElementById(allocator, "password") orelse return;
 
-    const username = username_input.ref.getAlloc(js.String, allocator, "innerText") catch return;
-    const password = password_input.ref.getAlloc(js.String, allocator, "innerText") catch return;
+    const username = username_input.ref.getAlloc(js.String, allocator, "value") catch return;
+    const password = password_input.ref.getAlloc(js.String, allocator, "value") catch return;
 
     const response = switch (action orelse @panic("action is null")) {
-        .signin => utils.api.call(api.signin, allocator, "/api/signin", .{
+        .signin => utils.api.execute(
+            api.signin,
+            allocator,
+            "/api/signin",
+            .{
                 .username = username,
                 .password = password,
                 .referrer = referrer,
             },
         ) catch return,
-        .login => utils.api.call(api.login, allocator, "/api/login", .{
+        .login => utils.api.execute(
+            api.login,
+            allocator,
+            "/api/login",
+            .{
                 .username = username,
                 .password = password,
                 .referrer = referrer,
@@ -87,9 +95,15 @@ fn authenticate(_: zx.EventContext) void {
 fn logout(_: zx.EventContext) void {
     const allocator = std.heap.wasm_allocator;
 
-    const response = utils.api.call(api.logout, allocator, "/api/logout", .{
-        .token = if (user_data) |data| data.token else @panic("user_data is null"),
-    }) catch return;
+    const token = if (user_data) |data| data.token else @panic("user_data is null");
+    const response = utils.api.execute(
+        api.logout,
+        allocator,
+        "/api/logout",
+        .{
+            .token = token,
+        },
+    ) catch return;
 
     if (response.ok == 1) {
         user_data = null;
@@ -101,13 +115,25 @@ fn logout(_: zx.EventContext) void {
 fn closeForm(_: zx.EventContext) void {
     action = null;
 
-    if (utils.html.getElementById(std.heap.wasm_allocator, dialog_id)) |dialog| {
-        dialog.ref.call(void, "close", .{}) catch return;
+    const allocator = std.heap.wasm_allocator;
+
+    if (utils.html.getElementById(allocator, dialog_id)) |dialog| {
+        dialog.ref.call(void, "close", .{}) catch {};
+    }
+
+    if (utils.html.getElementById(allocator, "username")) |username_input| {
+        username_input.ref.set("value", js.string("")) catch {};
+    }
+
+    if (utils.html.getElementById(allocator, "password")) |password_input| {
+        password_input.ref.set("value", js.string("")) catch {};
     }
 }
 
 pub fn Buttons(allocator: zx.Allocator) zx.Component {
-    utils.csr(@src());
+    if (!utils.inClient()) {
+        return (<></>);
+    }
 
     const class = "text-primary bg-secondary rounded-md";
 
@@ -129,7 +155,9 @@ pub fn Buttons(allocator: zx.Allocator) zx.Component {
 }
 
 pub fn Form(allocator: zx.Allocator) zx.Component {
-    utils.csr(@src());
+    if (!utils.inClient()) {
+        return (<></>);
+    }
 
     return (
         <dialog @{allocator} id={dialog_id} class="backdrop:bg-black/50 rounded-lg ">

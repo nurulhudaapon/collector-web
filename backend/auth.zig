@@ -112,7 +112,7 @@ pub fn login(allocator: Allocator, username: []const u8, password: []const u8) !
     const hashed = hash(
         password,
         secret.salt,
-    ) catch |e| std.debug.panic("unreachable?: {}", .{e});
+    ) catch |e| std.debug.panic("couldn't hash password & salt: {}", .{e});
 
     if (!std.mem.eql(u8, &hashed, secret.hashed_password)) return error.InvalidCredentials;
 

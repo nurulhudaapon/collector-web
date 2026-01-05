@@ -7,15 +7,12 @@ pub const api = @import("utils/api.zig");
 pub const html = @import("utils/html.zig");
 pub const routing = @import("utils/routing.zig");
 
-// for functions that can only be Client-Side-Rendered
-pub inline fn csr(src: std.builtin.SourceLocation) void {
-    if (builtin.os.tag != .freestanding) {
-        std.debug.panic("{s}:{} function '{s}' is intended for CSR", .{
-            src.file,
-            src.line,
-            src.fn_name,
-        });
-    }
+// NOTE: **must** to be inline to work correctly if there are arch-specific types and whatnot
+/// use in codepaths like
+/// ```zig
+/// if (!inClient()) return;
+/// clientOnlyCode();
+/// ```
+pub inline fn inClient() bool {
+    return builtin.os.tag == .freestanding and builtin.cpu.arch.isWasm();
 }
-
-// TODO: add ssr()?
