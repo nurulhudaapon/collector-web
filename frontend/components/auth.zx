@@ -26,7 +26,10 @@ var user_data: ?UserData = null;
 fn showForm() void {
     const allocator = std.heap.wasm_allocator;
 
-    const a = action orelse @panic("action is null");
+    const a = action orelse {
+        utils.js.log(.{ js.string("action is null") }) catch {};
+        return;
+    };
 
     if (utils.html.getElementById(allocator, dialog_id)) |dialog| {
         dialog.ref.call(void, "showModal", .{}) catch return;
@@ -52,14 +55,27 @@ fn openLogin(_: zx.EventContext) void {
 }
 
 fn inCallback(response: api.signin.Output) !void {
+    const allocator = std.heap.wasm_allocator;
+
+    const username = try allocator.dupe(u8, response.username);
+    errdefer allocator.free(username);
+
+    const token = try allocator.dupe(u8, response.token);
+    errdefer allocator.free(token);
+
     user_data = .{
-        .username = response.username,
-        .token = response.token,
+        .username = username,
+        .token = token,
     };
 }
 
 fn authenticate(_: zx.EventContext) void {
     const allocator = std.heap.wasm_allocator;
+
+    const a = action orelse {
+        utils.js.log(.{ js.string("action is null") }) catch {};
+        return;
+    };
 
     const location = js.global.get(js.Object, "location") catch return;
     const referrer = location.getAlloc(js.String, allocator, "pathname") catch return;
@@ -70,7 +86,7 @@ fn authenticate(_: zx.EventContext) void {
     const username = username_input.ref.getAlloc(js.String, allocator, "value") catch return;
     const password = password_input.ref.getAlloc(js.String, allocator, "value") catch return;
 
-    switch (action orelse @panic("action is null")) {
+    switch (a) {
         .signin => utils.api.execute(
             api.signin,
             allocator,
@@ -97,14 +113,29 @@ fn authenticate(_: zx.EventContext) void {
 }
 
 fn outCallback(response: api.logout.Output) !void {
-    if (response.ok != 1) @panic("should always return 1");
+    if (response.ok != 1) {
+        utils.js.log(.{ js.string("API's ok field should always be 1") }) catch {};
+        return;
+    }
+
+    if (user_data) |data| {
+        const allocator = std.heap.wasm_allocator;
+
+        allocator.free(data.username);
+        allocator.free(data.token);
+    }
+
     user_data = null;
 }
 
 fn logout(_: zx.EventContext) void {
     const allocator = std.heap.wasm_allocator;
 
-    const token = if (user_data) |data| data.token else @panic("user_data is null");
+    const token = if (user_data) |data| data.token else {
+        utils.js.log(.{ js.string("user_data is null") }) catch {};
+        return;
+    };
+
     utils.api.execute(
         api.logout,
         allocator,

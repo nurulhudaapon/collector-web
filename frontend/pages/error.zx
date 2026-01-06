@@ -25,7 +25,7 @@ pub fn Error(ctx: zx.ErrorContext) zx.Component {
     const trace = stackTrace(ctx.arena) catch "";
 
     if (utils.routing.isApi(ctx.request.url)) {
-        @panic("an API should never error, instead return 500 + {error: ...}");
+        @panic("CRITICAL ERROR: APIs should never error, instead return 500 + {error: ...}");
     }
 
     return (
