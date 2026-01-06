@@ -13,8 +13,8 @@
             .hash = "sdk-0.0.1-WSv1A8bxAADyYl7wSf9KthP7qoqS8sur8kb1nkxMuPrY",
         },
         .zx = .{
-            .url = "git+https://github.com/nurulhudaapon/zx#93785718d2dd895c7b7f38afc60e7e6e579b2644",
-            .hash = "zx-0.1.0-dev.517-8okzKpy8fwDdYWez0NHwyeE1Zl9CpVV-0_WSLJNFZjoc",
+            .url = "git+https://github.com/nurulhudaapon/zx#69139916b846b9bedc18861b183bb2c78ccc5f84",
+            .hash = "zx-0.1.0-dev.517-8okzKr7BfwCJnlrfvFTNPq9z9Ima39D5HgOmW9hGie_z",
         },
     },
     // project not meant to be used as dependency

@@ -12,6 +12,10 @@ pub const std_options: std.Options = .{
             .scope = .db_migrate,
             .level = .warn,
         },
+        .{
+            .scope = .fridge,
+            .level = .warn,
+        },
     },
 };
 

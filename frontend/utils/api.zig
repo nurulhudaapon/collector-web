@@ -6,16 +6,13 @@ const js = zx.Client.js;
 
 const utils = @import("../utils.zig");
 
-// HACK: allow this code to compile (does nothing) on server side
-const Value = if (utils.inClient())
-    js.Value
-else
-    u0;
-
-const Object = if (utils.inClient())
-    js.Object
-else
-    struct { value: Value };
+comptime {
+    if (utils.inClient()) {
+        @export(&promiseCompleted, .{
+            .name = "promiseCompleted",
+        });
+    }
+}
 
 fn consoleLog(args: anytype) !void {
     const console: js.Object = try js.global.get(js.Object, "console");
@@ -26,13 +23,13 @@ fn consoleLog(args: anytype) !void {
 
 fn zigToJs(allocator: std.mem.Allocator, zig: anytype) !js.Object {
     // allocate an empty JS object
-    var object = try js.global.callAlloc(js.Object, allocator, "Object", .{});
+    var object: js.Object = try js.global.callAlloc(js.Object, allocator, "Object", .{});
 
     inline for (std.meta.fields(@TypeOf(zig))) |field| {
         const T = field.type;
         const field_value: T = @field(zig, field.name);
 
-        const value: Value = switch (T) {
+        const value: js.Value = switch (T) {
             []const u8 => .init(js.string(field_value)),
             else => switch (@typeInfo(T)) {
                 .@"struct" => (try zigToJs(allocator, field_value)).value,
@@ -98,26 +95,55 @@ pub fn writeOutput(comptime api: type, ctx: zx.PageContext, value: anyerror!api.
 }
 
 const Awaiter = union(enum) {
+    free,
     waiting,
-    value: Object,
-    reason: Object,
+    fulfilled: js.Object,
+    rejected: js.Object,
 };
 
-var awaiter: Awaiter = .waiting;
+var awaiter: Awaiter = .free;
 
-export fn fulfill(value: Value) void {
-    awaiter.value = .{ .value = value };
+const wasm: std.builtin.CallingConvention = .{
+    .wasm_mvp = .{},
+};
+
+fn promiseCompleted(success: bool, value: js.Value) callconv(wasm) void {
+    if (success) {
+        awaiter.fulfilled = .{ .value = value };
+    } else {
+        awaiter.rejected = .{ .value = value };
+    }
 }
 
-export fn reject(reason: Value) void {
-    awaiter.reason = .{ .value = reason };
+/// calls to `promiseCompleted` to allow accessing the value
+extern "collector-web" fn awaitPromise(promise_id: @FieldType(js.Ref, "id")) void;
+
+fn await(promise: js.Object) !js.Object {
+    if (awaiter != .free) return error.AlreadyAwaiting;
+
+    // copied from non-pub Value.ref()
+    const ref: js.Ref = @bitCast(@intFromEnum(promise.value));
+
+    awaiter = .waiting;
+    awaitPromise(ref.id); // let JS handle the awaiting
+    defer awaiter = .free;
+
+    // spin until JS hands a value back (can be either fulfill or reject)
+    while (true) {
+        switch (awaiter) {
+            .free => return error.Unreachable,
+            .waiting => {},
+            .fulfilled => |object| return object,
+            .rejected => return error.PromiseFailed, // TODO: handle better
+        }
+    }
 }
 
-/// Helper to call an api from client
+/// Helper to call an API from client
 pub fn execute(comptime api: type, allocator: std.mem.Allocator, url: []const u8, body: api.Input) !api.Output {
     if (!utils.inClient()) return error.NotInBrowser;
 
-    const JSON = try js.global.get(js.Object, "JSON");
+    const JSON: js.Object = try js.global.get(js.Object, "JSON");
     defer JSON.deinit();
 
     const js_body = try zigToJs(allocator, body);
@@ -141,7 +167,7 @@ pub fn execute(comptime api: type, allocator: std.mem.Allocator, url: []const u8
     });
     defer options.deinit();
 
-    const fetch = try js.global.callAlloc(
+    const fetch: js.Object = try js.global.callAlloc(
         js.Object,
         allocator,
         "fetch",
@@ -151,18 +177,10 @@ pub fn execute(comptime api: type, allocator: std.mem.Allocator, url: []const u8
         },
     );
     defer fetch.deinit();
-    assert(awaiter == .waiting);
-    try fetch.call(void, "then", .{ fulfill, reject });
 
-    // wait for `fetch` to finish
-    const response = wait: while (true) {
-        switch (awaiter) {
-            .waiting => {},
-            .value => |val| break :wait val,
-            .reason => return error.FetchFailed, // TODO: handle better
-        }
-    };
-    awaiter = .waiting;
+    const response = try await(fetch);
+    defer response.deinit();
+
     try consoleLog(.{ js.string("response:"), response });
 
     // FIXME: remove
@@ -176,7 +194,7 @@ pub fn execute(comptime api: type, allocator: std.mem.Allocator, url: []const u8
         },
     );
 
-    const json = try JSON.callAlloc(
+    const json: js.Object = try JSON.callAlloc(
         js.Object,
         allocator,
         "parse",
