@@ -6,28 +6,6 @@ const js = zx.Client.js;
 
 const wasm = @import("../wasm.zig");
 
-fn zigToJs(allocator: std.mem.Allocator, zig: anytype) !js.Object {
-    // allocate an empty JS object
-    var object: js.Object = try js.global.call(js.Object, "Object", .{});
-
-    inline for (std.meta.fields(@TypeOf(zig))) |field| {
-        const T = field.type;
-        const field_value: T = @field(zig, field.name);
-
-        const value: js.Value = switch (T) {
-            []const u8 => .init(js.string(field_value)),
-            else => switch (@typeInfo(T)) {
-                .@"struct" => (try zigToJs(allocator, field_value)).value,
-                else => .init(field_value),
-            },
-        };
-
-        try object.set(field.name, value);
-    }
-
-    return object;
-}
-
 fn handleInner(
     comptime api: type,
     ctx: zx.RouteContext,
@@ -97,7 +75,7 @@ pub fn execute(
     const JSON: js.Object = try js.global.get(js.Object, "JSON");
     defer JSON.deinit();
 
-    const js_body = try zigToJs(allocator, args);
+    const js_body = try wasm.js.fromZig(allocator, args);
     defer js_body.deinit();
 
     const body_str: []const u8 = try JSON.callAlloc(
@@ -110,7 +88,7 @@ pub fn execute(
     );
     defer allocator.free(body_str);
 
-    const options = try zigToJs(allocator, .{
+    const options = try wasm.js.fromZig(allocator, .{
         .method = @as([]const u8, "POST"),
         .body = body_str,
         .headers = .{

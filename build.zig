@@ -16,8 +16,10 @@ pub fn build(b: *Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     // private modules
-    const options = b.addOptions();
-    addConfig(usize, b, options, "max_fetch_threads", 5);
+    const options_builder = b.addOptions();
+    addConfig(usize, b, options_builder, "max_fetch_threads", 5);
+    addConfig(usize, b, options_builder, "max_awaitable_promises", 5);
+    const options = options_builder.createModule();
 
     const api = b.createModule(.{
         .root_source_file = b.path("api/types.zig"),
@@ -43,7 +45,7 @@ pub fn build(b: *Build) !void {
         .imports = &.{
             .{ .name = "api", .module = api },
             .{ .name = "fridge", .module = fridge.module("fridge") },
-            .{ .name = "options", .module = options.createModule() },
+            .{ .name = "options", .module = options },
             .{ .name = "sdk", .module = sdk.module("sdk") },
         },
     });
@@ -100,6 +102,7 @@ pub fn build(b: *Build) !void {
     if (zx_build.client_exe) |wasm| {
         if (wasm.root_module.import_table.get("zx_components")) |components| {
             components.addImport("api", api);
+            components.addImport("options", options);
         }
     }
 

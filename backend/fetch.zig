@@ -147,7 +147,9 @@ pub fn run(allocator: Allocator, args: api.fetch.start.Args) !api.fetch.start.Re
             if (task.id == .none) {
                 break :blk task;
             }
-        } else return error.ResourcesExhausted;
+        }
+
+        return error.TasksExhausted;
     };
 
     global.counter += 1;
