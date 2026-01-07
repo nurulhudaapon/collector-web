@@ -1,5 +1,4 @@
 const std = @import("std");
-const assert = std.debug.assert;
 
 const zx = @import("zx");
 const js = zx.Client.js;
@@ -20,11 +19,19 @@ fn handleInner(
     try ctx.response.json(response, .{});
 }
 
+/// Helper to reduce duplication on API handlers (server side)
 pub fn handle(
     comptime api: type,
     ctx: zx.RouteContext,
     handler: *const fn (std.mem.Allocator, api.Args) anyerror!api.Response,
 ) void {
+    defer {
+        // trailing newline for reply to be readable when invoked with curl
+        if (ctx.response.writer()) |writer| {
+            writer.writeByte('\n') catch {};
+        }
+    }
+
     handleInner(api, ctx, handler) catch |err| {
         ctx.response.setStatus(.internal_server_error);
         ctx.response.json(.{ .@"error" = @errorName(err) }, .{}) catch @panic(
@@ -62,6 +69,7 @@ fn wrapHandler(comptime Response: type, func: *const fn (Response) anyerror!void
     }.parseResponse;
 }
 
+// TODO: support function with return of void (non-failable)
 /// Helper to call an API from client
 pub fn execute(
     comptime api: type,

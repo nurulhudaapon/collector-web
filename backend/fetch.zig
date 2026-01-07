@@ -1,8 +1,8 @@
 //! Functions to update local database with API data
 
 const std = @import("std");
-const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
+const log = std.log.scoped(.fetch);
 
 const sdk = @import("sdk").For(.en);
 
@@ -114,11 +114,14 @@ fn variants(allocator: Allocator, session: *database.Session, brief: sdk.Card.Br
     return card_variants.len;
 }
 
-fn entrypoint(allocator: Allocator, name: []const u8, task: *Task) !void {
-    defer allocator.free(name);
-
-    assert(task.id != .none);
+fn entrypoint(allocator: Allocator, owned_name: []const u8, task: *Task) !void {
+    defer allocator.free(owned_name);
     defer task.id = .none;
+
+    if (task.id == .none) {
+        log.err("task.id should be set before entrypoint", .{});
+        return error.TaskIdNotSet;
+    }
 
     var session = try database.getSession(allocator);
     defer session.deinit();
@@ -126,7 +129,7 @@ fn entrypoint(allocator: Allocator, name: []const u8, task: *Task) !void {
     var iterator = sdk.Card.all(allocator, .{
         .page_size = 250,
         .where = &.{
-            .like(.name, name),
+            .like(.name, owned_name),
         },
     });
 
@@ -138,9 +141,9 @@ fn entrypoint(allocator: Allocator, name: []const u8, task: *Task) !void {
     }
 }
 
-pub fn run(allocator: Allocator, args: api.fetch.start.Args) !api.fetch.start.Response {
-    const copy = try allocator.dupe(u8, args.name);
-    errdefer allocator.free(copy);
+pub fn start(allocator: Allocator, args: api.fetch.start.Args) !api.fetch.start.Response {
+    const owned_name = try allocator.dupe(u8, args.name);
+    errdefer allocator.free(owned_name);
 
     const task = blk: {
         for (&global.tasks) |*task| {
@@ -155,7 +158,7 @@ pub fn run(allocator: Allocator, args: api.fetch.start.Args) !api.fetch.start.Re
     global.counter += 1;
     task.* = try .init(@enumFromInt(global.counter));
 
-    var thread: std.Thread = try .spawn(.{}, entrypoint, .{ allocator, copy, task });
+    var thread: std.Thread = try .spawn(.{}, entrypoint, .{ allocator, owned_name, task });
     thread.detach();
 
     return .{

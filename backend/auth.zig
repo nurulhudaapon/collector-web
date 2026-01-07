@@ -4,6 +4,7 @@
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const log = std.log.scoped(.auth);
 
 const api = @import("api");
 
@@ -74,13 +75,18 @@ pub fn signin(allocator: Allocator, args: api.signin.Args) !api.signin.Response 
     errdefer session.delete(
         User,
         user_id,
-    ) catch |e| std.log.err("{t}", .{e});
+    ) catch |err| {
+        log.err("couldn't delete user, database corrupted ({t})", .{err});
+    };
 
     const salt = try randomSlice(allocator, salt_len);
     const hashed = hash(
         args.password,
         salt,
-    ) catch |e| std.debug.panic("couldn't hash password & salt: {}", .{e});
+    ) catch |err| {
+        log.err("couldn't hash password & salt  ({})", .{err});
+        return err;
+    };
 
     const secret_id = try session.insert(Secret, .{
         .id = user_id,
@@ -90,7 +96,9 @@ pub fn signin(allocator: Allocator, args: api.signin.Args) !api.signin.Response 
     errdefer session.delete(
         Secret,
         secret_id,
-    ) catch |e| std.log.err("{t}", .{e});
+    ) catch |err| {
+        log.err("couldn't delete secret  ({})", .{err});
+    };
 
     return .{
         .username = args.username,
@@ -116,7 +124,10 @@ pub fn login(allocator: Allocator, args: api.login.Args) !api.login.Response {
     const hashed = hash(
         args.password,
         secret.salt,
-    ) catch |e| std.debug.panic("couldn't hash password & salt: {}", .{e});
+    ) catch |err| {
+        log.err("couldn't hash password & salt  ({})", .{err});
+        return err;
+    };
 
     if (!std.mem.eql(u8, &hashed, secret.hashed_password)) return error.InvalidCredentials;
 

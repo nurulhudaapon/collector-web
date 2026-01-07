@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = std.log.scoped(.auth);
 
 const zx = @import("zx");
 const js = zx.Client.js;
@@ -20,12 +21,12 @@ const UserData = struct {
     token: []const u8,
 };
 
-var action: ?Action = null;
-var user_data: ?UserData = null;
+var maybe_action: ?Action = null;
+var maybe_user_data: ?UserData = null;
 
 fn showForm() void {
-    const a = action orelse {
-        wasm.js.log(.{ js.string("action is null") }) catch {};
+    const action = maybe_action orelse {
+        log.err("action is null", .{});
         return;
     };
 
@@ -36,7 +37,7 @@ fn showForm() void {
 
     if (wasm.html.getElementById(submit_id)) |submit| {
         defer submit.deinit();
-        const text = switch (a) {
+        const text = switch (action) {
             .signin => "Sign in",
             .login => "Log in",
         };
@@ -45,12 +46,12 @@ fn showForm() void {
 }
 
 fn openSignin(_: zx.EventContext) void {
-    action = .signin;
+    maybe_action = .signin;
     showForm();
 }
 
 fn openLogin(_: zx.EventContext) void {
-    action = .login;
+    maybe_action = .login;
     showForm();
 }
 
@@ -61,15 +62,15 @@ fn inCallback(response: api.signin.Response) !void {
     const token = try wasm.allocator.dupe(u8, response.token);
     errdefer wasm.allocator.free(token);
 
-    user_data = .{
+    maybe_user_data = .{
         .username = username,
         .token = token,
     };
 }
 
 fn authenticate(_: zx.EventContext) void {
-    const a = action orelse {
-        wasm.js.log(.{ js.string("action is null") }) catch {};
+    const action = maybe_action orelse {
+        log.err("action is null", .{})  ;
         return;
     };
 
@@ -89,7 +90,7 @@ fn authenticate(_: zx.EventContext) void {
     const password: []const u8 = password_input.getAlloc(js.String, wasm.allocator, "value") catch return;
     defer wasm.allocator.free(password);
 
-    switch (a) {
+    switch (action) {
         .signin => wasm.api.execute(
             api.signin,
             wasm.allocator,
@@ -117,21 +118,21 @@ fn authenticate(_: zx.EventContext) void {
 
 fn outCallback(response: api.logout.Response) !void {
     if (response.ok != 1) {
-        wasm.js.log(.{ js.string("API's ok field should always be 1") }) catch {};
+        log.err("API's ok field should always be 1", .{});
         return;
     }
 
-    if (user_data) |data| {
-        wasm.allocator.free(data.username);
-        wasm.allocator.free(data.token);
+    if (maybe_user_data) |user_data| {
+        wasm.allocator.free(user_data.username);
+        wasm.allocator.free(user_data.token);
     }
 
-    user_data = null;
+    maybe_user_data = null;
 }
 
 fn logout(_: zx.EventContext) void {
-    const token = if (user_data) |data| data.token else {
-        wasm.js.log(.{ js.string("user_data is null") }) catch {};
+    const token = if (maybe_user_data) |user_data| user_data.token else {
+        log.err("user_data is null", .{});
         return;
     };
 
@@ -147,7 +148,7 @@ fn logout(_: zx.EventContext) void {
 }
 
 fn closeForm(_: zx.EventContext) void {
-    action = null;
+    maybe_action = null;
 
     if (wasm.html.getElementById(dialog_id)) |dialog| {
         defer dialog.deinit();
@@ -174,9 +175,9 @@ pub fn Buttons(allocator: zx.Allocator) zx.Component {
 
     return (
         <div @{allocator}>
-            {if (user_data) |data| (
+            {if (maybe_user_data) |user_data| (
                 <>
-                    Welcome back, {data.username}
+                    Welcome back, {user_data.username}
                     <button {class} onclick={logout}>Log out</button>
                 </>
             ) else (

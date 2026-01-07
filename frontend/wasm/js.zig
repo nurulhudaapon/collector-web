@@ -1,5 +1,5 @@
 const std = @import("std");
-const assert = std.debug.assert;
+const logger = std.log.scoped(.@"wasm.js");
 
 const zx = @import("zx");
 const js = zx.Client.js;
@@ -30,7 +30,7 @@ const Callbacks = struct {
 };
 
 fn emptyFulfill(_: js.Object) !void {
-    @panic("called emptyFulfill callback");
+    logger.err("called emptyFulfill callback", .{});
 }
 
 const Awaitable = struct {
@@ -42,6 +42,7 @@ const Awaitable = struct {
         .promise_id = null,
         .output = undefined,
         .callbacks = .{
+            // should never get actually called
             .onFulfill = emptyFulfill,
         },
     };

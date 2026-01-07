@@ -1,5 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const log = std.log.scoped(.@"error-handler");
 
 const zx = @import("zx");
 
@@ -25,7 +26,7 @@ pub fn Error(ctx: zx.ErrorContext) zx.Component {
     const trace = stackTrace(ctx.arena) catch "";
 
     if (wasm.routing.isApi(ctx.request.url)) {
-        @panic("unreachable: APIs shouldn't go through pages' processing");
+        log.err("APIs shouldn't go through pages' processing: {s}", .{ctx.request.url});
     }
 
     return (

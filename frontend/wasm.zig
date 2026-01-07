@@ -3,15 +3,17 @@ const builtin = @import("builtin");
 
 const zx = @import("zx");
 
+const msg = "must only use WASM code in the browser";
+
 pub const allocator = if (zx.platform == .browser)
     std.heap.wasm_allocator
 else
-    @compileError("must only use WASM code in WASM :P");
+    @compileError(msg);
 
 pub const calling_convention: std.builtin.CallingConvention = if (zx.platform == .browser)
     .{ .wasm_mvp = .{} }
 else
-    @compileError("must only use WASM code in WASM :P");
+    @compileError(msg);
 
 pub const api = @import("wasm/api.zig");
 pub const html = @import("wasm/html.zig");

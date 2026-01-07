@@ -1,5 +1,4 @@
 const std = @import("std");
-const assert = std.debug.assert;
 
 const builtin = @import("builtin");
 
@@ -21,6 +20,7 @@ comptime {
 }
 
 pub const std_options: std.Options = .{
+    .log_level = .debug,
     .log_scope_levels = &.{
         .{
             .scope = .db_migrate,
@@ -31,7 +31,21 @@ pub const std_options: std.Options = .{
             .level = .warn,
         },
     },
+    .logFn = if (zx.platform == .browser)
+        zx.Client.logFn
+    else
+        std.log.defaultLog,
 };
+
+fn panicFn(msg: []const u8, _: ?usize) noreturn {
+    std.log.err("panic: {s}", .{msg});
+    while (true) {}
+}
+
+pub const panic = if (zx.platform == .browser)
+    std.debug.FullPanic(panicFn)
+else
+    std.debug.simple_panic;
 
 const config: zx.App.Config = .{
     .server = .{},
@@ -39,10 +53,12 @@ const config: zx.App.Config = .{
 };
 
 pub fn main() !void {
-    if (builtin.os.tag == .freestanding) return;
+    if (zx.platform == .browser) return;
 
-    var gpa: std.heap.DebugAllocator(.{}) = .{};
-    defer assert(gpa.deinit() == .ok);
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    defer if (gpa.deinit() == .ok) {
+        std.log.err("memory leaked", .{});
+    };
 
     const allocator = gpa.allocator();
 

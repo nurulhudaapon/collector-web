@@ -1,25 +1,46 @@
 const std = @import("std");
+const log = std.log.scoped(.@"fetch/[name]");
 
 const zx = @import("zx");
+const js = zx.Client.js;
 
 const api = @import("api");
 
 const wasm = @import("../../../wasm.zig");
 
-var name: []const u8 = undefined;
-var id: u64 = undefined;
+/// if of the currently-being-run fetch task
+var maybe_id: ?u64 = null;
 
 var count: zx.Signal(u64) =.init(0);
+
 var ms: zx.Signal(u64) = .init(0);
-var updater: zx.Effect(u64) = .init(&count, update);
 
 fn updateCallback(response: api.fetch.status.Response) !void {
-    count.set(response.count);
-    ms.set(response.ms_elapsed);
+    count.value = response.count;
+    ms.value = response.ms_elapsed;
+
+    if (response.finished) {
+        maybe_id = null;
+        return;
+    }
+
+    count.notifyChange();
+
+    // zx.requestRender();
 }
 
-fn update(_: u64) !void {
-    try wasm.api.execute(
+fn onCountChange(new_count: u64) void {
+    _ = new_count;
+
+    const id = maybe_id orelse {
+        log.err("id is null", .{});
+        return;
+    };
+
+    // TODO: delay?
+
+    // after a change to the count, trigger another fetch of stats
+    wasm.api.execute(
         api.fetch.status,
         wasm.allocator,
         "/api/fetch/status",
@@ -27,48 +48,64 @@ fn update(_: u64) !void {
         .{
             .id = id,
         },
-    );
+    ) catch {}; // TODO: stop?
 }
 
 fn startCallback(response: api.fetch.start.Response) !void {
-    id = response.id;
+    if (maybe_id != null) {
+        log.err("id was already set", .{});
+        return;
+    }
+
+    maybe_id = response.id;
     count.set(0);
 }
 
-pub fn Stats(allocator: zx.Allocator) zx.Component {
+pub fn Stats(
+    ctx: *zx.ComponentCtx(struct {
+        name: []const u8,
+    }),
+) zx.Component {
     if (zx.platform != .browser) {
-        return (<></>);
+        return (
+            <>
+                Not in browser
+            </>
+        );
     }
 
     wasm.api.execute(
         api.fetch.start,
-        allocator,
+        wasm.allocator,
         "/api/fetch/start",
         startCallback,
         .{
-            .name = name,
+            .name = ctx.props.name,
         },
     ) catch |err| {
         return (
-            <>
+            <fragment @allocator={ctx.allocator}>
                 Error launching task in server: {@errorName(err)}
-            </>
+            </fragment>
         );
     };
 
+    zx.effect(&count,&onCountChange);
+
     return (
-        <fragment @{allocator}>
+        <fragment @allocator={ctx.allocator}>
             Found {&count} cards in {&ms}ms
         </fragment>
     );
 }
 
 pub fn Page(ctx: zx.PageContext) !zx.Component {
-    name = ctx.request.getParam("name") orelse return error.MissingName;
+    const name = ctx.request.getParam("name") orelse return error.MissingName;
 
+    // TODO: Stats with @rendering={.client}
     return (
-        <div @allocator={ctx.arena}>
-            <Stats @rendering={.client} />
+        <div @allocator={ctx.allocator}>
+            <Stats {name} />
         </div>
     );
 }
