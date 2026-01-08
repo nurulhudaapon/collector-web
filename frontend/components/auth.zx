@@ -167,9 +167,7 @@ fn closeForm(_: zx.EventContext) void {
 }
 
 pub fn Buttons(allocator: zx.Allocator) zx.Component {
-    if (zx.platform != .browser) {
-        return (<></>);
-    }
+    if (zx.platform != .browser) return .none;
 
     const class = "text-primary bg-secondary rounded-md";
 
@@ -191,9 +189,7 @@ pub fn Buttons(allocator: zx.Allocator) zx.Component {
 }
 
 pub fn Form(allocator: zx.Allocator) zx.Component {
-    if (zx.platform != .browser) {
-        return (<></>);
-    }
+    if (zx.platform != .browser) return .none;
 
     return (
         <dialog @{allocator} id={dialog_id} class="backdrop:bg-black/50 rounded-lg ">

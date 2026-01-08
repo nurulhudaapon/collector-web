@@ -5,37 +5,28 @@ const zx = @import("zx");
 const js = zx.Client.js;
 
 const api = @import("api");
+const backend = @import("backend");
 
 const wasm = @import("../../../wasm.zig");
 
-/// if of the currently-being-run fetch task
-var maybe_id: ?u64 = null;
-
+var id: u64 = undefined;
 var count: zx.Signal(u64) =.init(0);
-
 var ms: zx.Signal(u64) = .init(0);
 
 fn updateCallback(response: api.fetch.status.Response) !void {
     count.value = response.count;
     ms.value = response.ms_elapsed;
 
-    if (response.finished) {
-        maybe_id = null;
-        return;
+    // only trigger update if fetch is still going
+    if (!response.finished) {
+        count.notifyChange();
     }
-
-    count.notifyChange();
-
-    // zx.requestRender();
 }
 
 fn onCountChange(new_count: u64) void {
     _ = new_count;
 
-    const id = maybe_id orelse {
-        log.err("id is null", .{});
-        return;
-    };
+    log.info("onCountChange, id: {}", .{id});
 
     // TODO: delay?
 
@@ -51,45 +42,16 @@ fn onCountChange(new_count: u64) void {
     ) catch {}; // TODO: stop?
 }
 
-fn startCallback(response: api.fetch.start.Response) !void {
-    if (maybe_id != null) {
-        log.err("id was already set", .{});
-        return;
-    }
-
-    maybe_id = response.id;
-    count.set(0);
-}
-
 pub fn Stats(
     ctx: *zx.ComponentCtx(struct {
-        name: []const u8,
+        id: u64,
     }),
 ) zx.Component {
-    if (zx.platform != .browser) {
-        return (
-            <>
-                Not in browser
-            </>
-        );
-    }
+    if (zx.platform != .browser) return .none;
 
-    wasm.api.execute(
-        api.fetch.start,
-        wasm.allocator,
-        "/api/fetch/start",
-        startCallback,
-        .{
-            .name = ctx.props.name,
-        },
-    ) catch |err| {
-        return (
-            <fragment @allocator={ctx.allocator}>
-                Error launching task in server: {@errorName(err)}
-            </fragment>
-        );
-    };
+    id = ctx.props.id;
 
+    count.set(0); // kick off the updates
     zx.effect(&count,&onCountChange);
 
     return (
@@ -102,10 +64,18 @@ pub fn Stats(
 pub fn Page(ctx: zx.PageContext) !zx.Component {
     const name = ctx.request.getParam("name") orelse return error.MissingName;
 
-    // TODO: Stats with @rendering={.client}
+    // NOTE: the allocator passed here has to be thread-safe!!
+    //       will be used in `Thread.spawn` in backend and otherwise we crash (dont ask me how i know)
+
+    // FIXME: for some reason, passing std.heap.smp_allocator here doesn't work
+    //        yet using it directly on backend does... some cross-module boundary thing perhaps
+    const response = try backend.fetch.start(undefined, .{
+        .name = name,
+    });
+
     return (
-        <div @allocator={ctx.allocator}>
-            <Stats {name} />
+        <div @allocator={ctx.arena}>
+            <Stats @rendering={.client} id={response.id} />
         </div>
     );
 }

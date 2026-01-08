@@ -13,36 +13,36 @@ const database = @import("database.zig");
 const Card = @import("Card.zig");
 
 const Task = struct {
-    const Int = u64;
-
-    const Id = enum(Int) {
-        const backing_integer = Int;
-
-        none,
-        _,
+    const State = union(enum) {
+        free,
+        running,
+        complete: u64,
     };
 
-    id: Id,
+    id: u32,
+    state: State,
     count: u64,
-    timer: std.time.Timer,
+    start: i64,
 
-    fn init(id: Id) !Task {
+    fn init(id: u32) Task {
         return .{
+            .state = .running,
             .id = id,
             .count = 0,
-            .timer = try .start(),
+            .start = now(),
         };
     }
 
     const none: Task = .{
-        .id = .none,
+        .state = .free,
+        .id = 0,
         .count = 0,
-        .timer = undefined,
+        .start = 0,
     };
 };
 
 const global = struct {
-    var counter: usize = 0;
+    var next_id: u32 = 0;
     var tasks: [options.max_fetch_threads]Task = @splat(.none);
 };
 
@@ -114,13 +114,20 @@ fn variants(allocator: Allocator, session: *database.Session, brief: sdk.Card.Br
     return card_variants.len;
 }
 
-fn entrypoint(allocator: Allocator, owned_name: []const u8, task: *Task) !void {
-    defer allocator.free(owned_name);
-    defer task.id = .none;
+fn now() i64 {
+    return std.time.milliTimestamp();
+}
 
-    if (task.id == .none) {
-        log.err("task.id should be set before entrypoint", .{});
-        return error.TaskIdNotSet;
+fn msElapsed(since: i64) u64 {
+    return @intCast(now() - since);
+}
+
+fn entrypoint(allocator: Allocator, owned_name: []const u8, task: *Task) !void {
+    defer {
+        allocator.free(owned_name);
+        task.state = .{
+            .complete = msElapsed(task.start),
+        };
     }
 
     var session = try database.getSession(allocator);
@@ -141,28 +148,35 @@ fn entrypoint(allocator: Allocator, owned_name: []const u8, task: *Task) !void {
     }
 }
 
-pub fn start(allocator: Allocator, args: api.fetch.start.Args) !api.fetch.start.Response {
+pub fn start(_: Allocator, args: api.fetch.start.Args) !api.fetch.start.Response {
+    const allocator = std.heap.smp_allocator;
+
     const owned_name = try allocator.dupe(u8, args.name);
     errdefer allocator.free(owned_name);
 
     const task = blk: {
         for (&global.tasks) |*task| {
-            if (task.id == .none) {
-                break :blk task;
+            // slot never been used or has already finished
+            switch (task.state) {
+                .free,
+                .complete,
+                => break :blk task,
+
+                .running => {},
             }
         }
 
         return error.TasksExhausted;
     };
 
-    global.counter += 1;
-    task.* = try .init(@enumFromInt(global.counter));
+    defer global.next_id += 1;
+    task.* = .init(global.next_id);
 
     var thread: std.Thread = try .spawn(.{}, entrypoint, .{ allocator, owned_name, task });
     thread.detach();
 
     return .{
-        .id = @intFromEnum(task.id),
+        .id = task.id,
     };
 }
 
@@ -170,13 +184,21 @@ pub fn status(allocator: Allocator, args: api.fetch.status.Args) !api.fetch.stat
     // argument is there so that all APIs have same signature
     _ = allocator;
 
-    for (&global.tasks) |*task| {
-        if (task.id != .none and @intFromEnum(task.id) == args.id) {
-            return .{
+    for (global.tasks) |task| {
+        if (task.id != args.id) continue;
+
+        switch (task.state) {
+            .free => {},
+            .running => return .{
                 .count = task.count,
-                .finished = task.id == .none,
-                .ms_elapsed = task.timer.read() / std.time.ns_per_ms,
-            };
+                .finished = false,
+                .ms_elapsed = msElapsed(task.start),
+            },
+            .complete => |elapsed| return .{
+                .count = task.count,
+                .finished = true,
+                .ms_elapsed = elapsed,
+            },
         }
     }
 
