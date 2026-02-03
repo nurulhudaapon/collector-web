@@ -33,7 +33,7 @@ pub fn run(allocator: Allocator, name: []const u8) !usize {
     // NOTE: sweet spot is somewhere 1900-1950, don't feel like digging exact value
     @setEvalBranchQuota(1950);
 
-    const response = try sdk.graphql(
+    const response = try sdk.graphql.run(
         allocator,
         "cards",
         .{
@@ -95,7 +95,7 @@ pub fn run(allocator: Allocator, name: []const u8) !usize {
 
         const variants = card.variants_detailed orelse continue;
         for (variants) |variant| {
-            const db_variant: Omit(Card.Variant, "id") = .{
+            const data: Omit(Card.Variant, "id") = .{
                 .card_id = card.id,
                 .type = variant.type,
                 // .subtype = variant.subtype, // FIXME: missing in graphql
@@ -104,10 +104,11 @@ pub fn run(allocator: Allocator, name: []const u8) !usize {
                 .foil = variant.foil,
             };
 
-            if (try session.query(Card.Variant).where("card_id", card.id).where("type", db_variant.type).findFirst()) |in_db| {
-                try session.update(Card.Variant, in_db.id, db_variant);
+            const in_db = try database.findOne(Card.Variant, &session, data);
+            if (in_db) |row| {
+                try session.update(Card.Variant, row.id, data);
             } else {
-                _ = try session.insert(Card.Variant, db_variant);
+                _ = try session.insert(Card.Variant, data);
             }
 
             count += 1;

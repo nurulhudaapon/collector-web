@@ -46,3 +46,23 @@ pub fn getSession(allocator: Allocator) !Session {
         return session;
     }
 }
+
+fn buildQuery(comptime T: type, session: *Session, filters: anytype) fr.Query(T) {
+    var query = session.query(T);
+
+    const Filters = @TypeOf(filters);
+    inline for (@typeInfo(Filters).@"struct".fields) |field| {
+        const val = @field(filters, field.name);
+        query = query.where(field.name, val);
+    }
+
+    return query;
+}
+
+pub fn findOne(comptime T: type, session: *Session, filters: anytype) !?T {
+    return buildQuery(T, session, filters).findFirst();
+}
+
+pub fn findAll(comptime T: type, session: *Session, filters: anytype) ![]const T {
+    return buildQuery(T, session, filters).findAll();
+}

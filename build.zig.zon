@@ -9,12 +9,16 @@
             .hash = "fridge-0.9.5-3GyIipe6AQCJI6OmD4dEQaWYWyc5Kvx5GNPKAP3L-D6l",
         },
         .sdk = .{
-            .url = "git+https://github.com/tcgdex/zig-sdk#5c45f2dc638a2e459ec5e499f65293f99d97bb7d",
-            .hash = "sdk-0.0.1-WSv1A-YIAQBD--0gC2srBgF4YyUmEM6Wj-V4cLs6pDN4",
+            .url = "git+https://github.com/tcgdex/zig-sdk#87d5798043463aea862d9fd2992b9e187524b614",
+            .hash = "sdk-0.0.1-WSv1AyvhAAB-fWr1YquKyTxV8C2WA0ruEj8JDewg1XJn",
+        },
+        .ushell = .{
+            .url = "git+https://github.com/elpekenin/ushell#58d9dfea1fc9e261a51760dc695b951c22badfc2",
+            .hash = "ushell-0.0.0-oclY4qWqAADgriPRPH7oxQXkj2i2cKBEEPYpfA-RHgFy",
         },
         .zx = .{
-            .url = "git+https://github.com/nurulhudaapon/zx#e53e8f4ac11275351654d5f44abb22988e7d7f80",
-            .hash = "zx-0.1.0-dev.598-8okzKpbzggAaFp1m2pW0HnWMXNuDZtF1eXr-1FefWHNW",
+            .url = "git+https://github.com/nurulhudaapon/zx#b04696f9794ad699758b6c10bb7ff63d1fa05baf",
+            .hash = "zx-0.1.0-dev.618-8okzKl9KgwB3vcCG6UnuihnUa1yGmhkrJeDEkb2ZIYBp",
         },
     },
     // project not meant to be used as dependency

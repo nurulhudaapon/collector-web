@@ -4,6 +4,8 @@ const zx = @import("zx");
 
 const backend = @import("backend");
 const Card = backend.Card;
+const Variant = Card.Variant;
+const Owned = Variant.Owned;
 
 const Size = struct {
     width: []const u8,
@@ -31,7 +33,7 @@ pub fn Image(allocator: zx.Allocator, props: ImageProps) zx.Component {
     );
 }
 
-fn isOwned(owned: []const Card.Variant.Owned, id: @FieldType(Card.Variant, "id")) bool {
+fn isOwned(owned: []const Owned, id: @FieldType(Card.Variant, "id")) bool {
     for (owned) |card| {
         if (card.variant_id == id) return true;
     }
@@ -41,13 +43,15 @@ fn isOwned(owned: []const Card.Variant.Owned, id: @FieldType(Card.Variant, "id")
 
 const VariantsProps = struct {
     card: Card,
-    owned: []const Card.Variant.Owned = &.{},
+    owned: []const Owned = &.{},
     size: Size = .default,
 };
 
 pub fn Variants(allocator: zx.Allocator, props: VariantsProps) !zx.Component {
-    const variants = try props.card.variants(allocator);
-    defer allocator.free(variants);
+    var session = try backend.database.getSession(allocator);
+    defer session.deinit();
+
+    const variants = try props.card.variants(&session);
 
     return (
         <div @allocator={allocator}>
@@ -94,11 +98,14 @@ pub fn Collection(
         name: []const u8,
     },
 ) !zx.Component {
-    const cards = try Card.all(allocator, props.name);
-    defer allocator.free(cards);
+    var session = try backend.database.getSession(allocator);
+    defer session.deinit();
 
-    const owned = try Card.Variant.Owned.by(allocator, props.user_id);
-    defer allocator.free(owned);
+    const cards = try Card.all(&session, props.name);
+
+    const owned = try backend.database.findAll(Owned, &session, .{
+        .user_id = props.user_id,
+    });
 
     return (
         <div @{allocator}>

@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 const builtin = @import("builtin");
 
@@ -48,9 +49,7 @@ pub fn main() !void {
     if (zx.platform == .browser) return;
 
     var gpa: std.heap.DebugAllocator(.{}) = .init;
-    defer if (gpa.deinit() == .ok) {
-        std.log.err("memory leaked", .{});
-    };
+    defer assert(gpa.deinit() == .ok);
 
     const allocator = gpa.allocator();
 

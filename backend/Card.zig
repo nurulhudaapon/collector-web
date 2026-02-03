@@ -25,39 +25,24 @@ pub const Variant = struct {
         user_id: u64,
         variant_id: u64,
         owned: bool,
-
-        pub fn by(allocator: Allocator, user_id: u64) ![]const Owned {
-            var session = try database.getSession(allocator);
-            defer session.deinit();
-
-            return session
-                .query(Owned)
-                .where("user_id", user_id)
-                .findAll();
-        }
     };
 };
 
-pub fn all(allocator: Allocator, name: []const u8) ![]const Card {
-    var session = try database.getSession(allocator);
-    defer session.deinit();
+pub fn all(session: *database.Session, pokemon_name: ?[]const u8) ![]const Card {
+    var query = session.query(Card);
 
-    const wildcard = try std.fmt.allocPrint(allocator, "%{s}%", .{name});
-    defer allocator.free(wildcard);
+    if (pokemon_name) |name| {
+        const wildcard = try std.fmt.allocPrint(session.arena, "%{s}%", .{name});
+        query = query.whereRaw("name like ?", .{wildcard});
+    }
 
-    return session
-        .query(Card)
-        .whereRaw("name like ?", .{wildcard})
+    return query
         .orderBy(.release_date, .asc)
         .findAll();
 }
 
-pub fn variants(self: *const Card, allocator: Allocator) ![]const Variant {
-    var session = try database.getSession(allocator);
-    defer session.deinit();
-
-    return session
-        .query(Variant)
-        .where("card_id", self.card_id)
-        .findAll();
+pub fn variants(self: *const Card, session: *database.Session) ![]const Variant {
+    return database.findAll(Variant, session, .{
+        .card_id = self.card_id,
+    });
 }

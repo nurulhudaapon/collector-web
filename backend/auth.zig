@@ -114,10 +114,9 @@ pub fn login(allocator: Allocator, args: api.login.Args) !api.login.Response {
     var session = try database.getSession(allocator);
     defer session.deinit();
 
-    const user = try session.query(User).where(
-        "username",
-        args.username,
-    ).findFirst() orelse return error.UserNotFound;
+    const user = try database.findOne(User, &session, .{
+        .username = args.username,
+    }) orelse return error.UserNotFound;
 
     const secret = try session.find(Secret, user.id) orelse return error.SecretNotFound;
 
@@ -145,7 +144,13 @@ pub fn logout(allocator: Allocator, args: api.logout.Args) !api.logout.Response 
     var session = try database.getSession(allocator);
     defer session.deinit();
 
-    try session.query(Token).where("value", args.token).delete().exec();
+    const in_db = try database.findOne(Token, &session, .{
+        .value = args.token,
+    });
+
+    if (in_db) |row| {
+        try session.delete(Token, row.id);
+    }
 
     return .{
         .ok = 1,

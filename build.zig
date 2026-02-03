@@ -5,6 +5,10 @@ const Step = Build.Step;
 const zx = @import("zx");
 const ZxOptions = zx.ZxInitOptions;
 
+// NOTE: both repl and server executables must have same name
+//       it is used to compute the database's location based on $APPDIR
+const exe_name = "collector-web";
+
 fn addConfig(comptime T: type, b: *Build, options: *Step.Options, name: []const u8, default: T) void {
     const value = b.option(T, name, name) orelse default;
     options.addOption(T, name, value);
@@ -15,6 +19,20 @@ pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // dependencies
+    const fridge = b.dependency("fridge", .{
+        // embed SQLite in binary
+        .bundle = true,
+    });
+    const sdk = b.dependency("sdk", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const ushell = b.dependency("ushell", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     // private modules
     const options_builder = b.addOptions();
     addConfig(usize, b, options_builder, "max_awaitable_promises", 5);
@@ -22,16 +40,6 @@ pub fn build(b: *Build) !void {
 
     const api = b.createModule(.{
         .root_source_file = b.path("api/types.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    // dependencies
-    const fridge = b.dependency("fridge", .{
-        // embed SQLite in binary
-        .bundle = true,
-    });
-    const sdk = b.dependency("sdk", .{
         .target = target,
         .optimize = optimize,
     });
@@ -48,6 +56,19 @@ pub fn build(b: *Build) !void {
             .{ .name = "sdk", .module = sdk.module("sdk") },
         },
     });
+    const repl_exe = b.addExecutable(.{
+        .name = exe_name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("backend/repl.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "fridge", .module = fridge.module("fridge") },
+                .{ .name = "ushell", .module = ushell.module("ushell") },
+                .{ .name = "sdk", .module = sdk.module("sdk") },
+            },
+        }),
+    });
 
     // frontend
     const frontend = b.createModule(.{
@@ -62,7 +83,7 @@ pub fn build(b: *Build) !void {
 
     // put the server together
     const exe = b.addExecutable(.{
-        .name = "collector-web",
+        .name = exe_name,
         .root_module = frontend,
         // work around self-hosted crashing on some code
         .use_llvm = true,
@@ -107,8 +128,12 @@ pub fn build(b: *Build) !void {
         }
     }
 
-    // tests
-    const tests = b.step("test", "run tests");
+    // steps
+    const repl_step = b.step("repl", "run REPL");
+    const run_repl = b.addRunArtifact(repl_exe);
+    repl_step.dependOn(&run_repl.step);
+
+    const test_step = b.step("test", "run tests");
     const test_runner: Step.Compile.TestRunner = .{
         .mode = .simple,
         .path = b.path("lib/test_runner.zig"),
@@ -120,7 +145,7 @@ pub fn build(b: *Build) !void {
         .use_llvm = true,
         .test_runner = test_runner,
     });
-    tests.dependOn(&b.addRunArtifact(test_backend).step);
+    test_step.dependOn(&b.addRunArtifact(test_backend).step);
 
     const test_frontend = b.addTest(.{
         .root_module = frontend,
@@ -128,5 +153,5 @@ pub fn build(b: *Build) !void {
         .use_llvm = true,
         .test_runner = test_runner,
     });
-    tests.dependOn(&b.addRunArtifact(test_frontend).step);
+    test_step.dependOn(&b.addRunArtifact(test_frontend).step);
 }
