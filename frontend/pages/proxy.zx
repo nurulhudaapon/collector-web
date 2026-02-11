@@ -36,18 +36,17 @@ const redirects: []const Redirect = &.{
 };
 
 pub fn Proxy(ctx: *zx.ProxyContext) !void {
-    // set user in `state` based on credentials cookie
-    if (ctx.request.cookies.get(cookie_name)) |token| {
-        const state: app.ProxyState = .{
-            .user = try .get(ctx.arena, token),
-        };
+    const state: app.ProxyState = .{
+        .token = ctx.request.cookies.get(cookie_name),
+    };
 
-        ctx.state(state);
-    }
+    ctx.state(state);
 
     for (redirects) |redirect| {
         if (std.mem.eql(u8, ctx.request.pathname, redirect.from)) {
-            ctx.response.redirect(redirect.to, 301);
+            ctx.response.setStatus(.moved_permanently);
+            ctx.response.setHeader("Location", redirect.to);
+
             ctx.abort();
         }
     }

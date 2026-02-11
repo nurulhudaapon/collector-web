@@ -3,8 +3,7 @@ const std = @import("std");
 const zx = @import("zx");
 
 const app = @import("app");
-const backend = @import("backend");
-const Card = backend.Card;
+const database = @import("database");
 
 const cards = @import("../../../components/cards.zx");
 const Image = cards.Image;
@@ -16,7 +15,7 @@ const Owned = enum {
     no,
 };
 
-fn isOwned(session: *backend.database.Session, variant: Card.Variant, maybe_user: ?backend.User) !Owned {
+fn isOwned(session: *database.Session, variant: database.Variant, maybe_user: ?database.User) !Owned {
     const user = maybe_user orelse return .not_logged;
 
     return if (try variant.ownedBy(session, user.id))
@@ -25,7 +24,7 @@ fn isOwned(session: *backend.database.Session, variant: Card.Variant, maybe_user
         .no;
 }
 
-fn styleFor(session: *backend.database.Session, variant: backend.Card.Variant, maybe_user: ?backend.User) ![]const u8 {
+fn styleFor(session: *database.Session, variant: database.Variant, maybe_user: ?database.User) ![]const u8 {
     return switch (try isOwned(session, variant, maybe_user)) {
         .not_logged => "",
         .yes => "text-green-600",
@@ -41,48 +40,60 @@ fn foo(ctx: zx.EventContext) void {
 pub fn Page(ctx: app.PageCtx) !zx.Component {
     const tcgdex_id = ctx.request.getParam("tcgdex_id") orelse return error.MissingTcgdexId;
 
-    var session = try backend.database.getSession(ctx.arena);
+    var session = try ctx.app.pool.getSession(ctx.arena);
     defer session.deinit();
 
-    const card = try backend.database.findOne(Card, &session, .{
+    const maybe_user = try ctx.state.getUser(&session);
+
+    const card = try database.findOne(database.Card, &session, .{
         .tcgdex_id = tcgdex_id,
     }) orelse return error.UnknownCard;
+
+    const set = try database.findOne(database.Set, &session, .{
+        .id = card.set_id,
+    }) orelse return error.UnknownSet;
 
     const variants = try card.variants(&session);
 
     const img_size: cards.ImageSize = .{ .width = .{ .pixels = 400 } };
 
     return (
-        <div @allocator={ctx.arena} class="w-full flex items-center">
-            <div class="text-7xl">{card.name}</div>
+        <div @allocator={ctx.arena} class="w-full items-center">
+            <p class="text-7xl">
+                {card.name} ({set.name})
+            </p>
 
-            <a href=`https://www.cardmarket.com/Pokemon/Products?idProduct={card.cardmarket_id}`>
-                <Image {card} size={img_size} />
-            </a>
+            <span class="pb-10" />
 
-            <span class="pr-10" />
+            <div class="w-full h-full flex items-center">
+                <a href=`https://www.cardmarket.com/Pokemon/Products?idProduct={card.cardmarket_id}`>
+                    <Image {card} size={img_size} />
+                </a>
 
-            <div class="flex-col">
-                <div class="justify-center">
-                    {for (variants) |variant| (
-                        <>
-                            <div class=`{try styleFor(&session, variant, ctx.state.user)}`>
-                                <Variant {variant} />
-                            </div>
+                <span class="pr-10" />
 
-                            <!-- TODO: implement -->
-                            {if (ctx.state.user != null) (
-                                <button>
-                                    Mark as
-                                    {switch (try isOwned(&session, variant, ctx.state.user)) {
-                                        .not_logged => @panic("unreachable"),
-                                        .yes => " not owned",
-                                        .no => " owned",
-                                    }}
-                                </button>
-                            )}
-                        </>
-                    )}
+                <div class="flex-col">
+                    <div class="justify-center">
+                        {for (variants) |variant| (
+                            <>
+                                <div class=`{try styleFor(&session, variant, maybe_user)}`>
+                                    <Variant {variant} />
+                                </div>
+
+                                <!-- TODO: implement -->
+                                {if (maybe_user) |user| (
+                                    <button>
+                                        Mark as
+                                        {switch (try isOwned(&session, variant, user)) {
+                                            .not_logged => @panic("unreachable"),
+                                            .yes => " not owned",
+                                            .no => " owned",
+                                        }}
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

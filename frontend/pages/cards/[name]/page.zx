@@ -2,12 +2,13 @@ const std = @import("std");
 
 const zx = @import("zx");
 
-const backend = @import("backend");
+const app = @import("app");
+const database = @import("database");
 
 const Cards = @import("../../../components/cards.zx").Cards;
 
-pub fn Page(ctx: zx.PageContext) !zx.Component {
-    var session = try backend.database.getSession(ctx.arena);
+pub fn Page(ctx: app.PageCtx) !zx.Component {
+    var session = try ctx.app.pool.getSession(ctx.arena);
     defer session.deinit();
 
     const name = ctx.request.getParam("name") orelse return error.MissingName;
@@ -20,10 +21,15 @@ pub fn Page(ctx: zx.PageContext) !zx.Component {
     const wildcard = try std.fmt.allocPrint(ctx.arena, "%{s}%", .{needle});
 
     const cards = try session
-        .query(backend.Card)
+        .query(database.Card)
         .whereRaw("name LIKE ?", .{wildcard})
         .orderBy(.id, .asc)
         .findAll();
 
-    return (<Cards @allocator={ctx.arena} {cards} />);
+    const sets = try database.findAll(database.Set, &session, .{});
+
+    const sorted = try database.Card.sort(ctx.arena, cards, sets);
+    defer ctx.arena.free(sorted);
+
+    return (<Cards @allocator={ctx.arena} cards={sorted} />);
 }

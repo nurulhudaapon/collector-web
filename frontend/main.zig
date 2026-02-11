@@ -5,6 +5,7 @@ const builtin = @import("builtin");
 const zx = @import("zx");
 
 const backend = @import("backend");
+const database = @import("database");
 
 const wasm = @import("wasm.zig");
 
@@ -20,10 +21,9 @@ comptime {
     }
 }
 
-const ServerState = struct {};
-pub const ProxyState = struct {
-    user: ?backend.User,
-};
+const ServerState = @import("ServerState.zig");
+pub const ProxyState = @import("ProxyState.zig");
+
 pub const LayoutCtx = zx.LayoutCtx(ServerState, ProxyState);
 pub const PageCtx = zx.PageCtx(ServerState, ProxyState);
 
@@ -59,7 +59,10 @@ pub fn main() !void {
         },
     };
 
-    const server: *zx.Server(ServerState) = try .init(allocator, zx_config, .{});
+    var server_state: ServerState = try .init(allocator);
+    defer server_state.deinit(allocator);
+
+    const server: *zx.Server(*ServerState) = try .init(allocator, zx_config, &server_state);
     defer server.deinit();
 
     server.info();

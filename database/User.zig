@@ -102,9 +102,8 @@ fn createTokenFor(
     return token.value;
 }
 
-pub fn register(allocator: Allocator, args: AuthArgs) !AuthResponse {
-    var session = try database.getSession(allocator);
-    defer session.deinit();
+pub fn register(session: *database.Session, args: AuthArgs) !AuthResponse {
+    const allocator = session.arena;
 
     const user_id = session.insert(User, .{
         .username = args.username,
@@ -140,14 +139,13 @@ pub fn register(allocator: Allocator, args: AuthArgs) !AuthResponse {
         log.err("couldn't delete secret  ({})", .{err});
     };
 
-    return .init(allocator, &session, user_id, args.username);
+    return .init(allocator, session, user_id, args.username);
 }
 
-pub fn login(allocator: Allocator, args: AuthArgs) !AuthResponse {
-    var session = try database.getSession(allocator);
-    defer session.deinit();
+pub fn login(session: *database.Session, args: AuthArgs) !AuthResponse {
+    const allocator = session.arena;
 
-    const user = try database.findOne(User, &session, .{
+    const user = try database.findOne(User, session, .{
         .username = args.username,
     }) orelse return error.UserNotFound;
 
@@ -163,16 +161,13 @@ pub fn login(allocator: Allocator, args: AuthArgs) !AuthResponse {
 
     if (!std.mem.eql(u8, &hashed, secret.hashed_password)) return error.InvalidCredentials;
 
-    return .init(allocator, &session, user.id, user.username);
+    return .init(allocator, session, user.id, user.username);
 }
 
-pub fn logout(allocator: Allocator, token_value: []const u8) !void {
-    var session = try database.getSession(allocator);
-    defer session.deinit();
-
+pub fn logout(session: *database.Session, token_value: []const u8) !void {
     if (try database.findOne(
         Token,
-        &session,
+        session,
         .{
             .value = token_value,
         },
@@ -181,19 +176,11 @@ pub fn logout(allocator: Allocator, token_value: []const u8) !void {
     }
 }
 
-pub fn get(allocator: Allocator, token_value: []const u8) !?User {
-    var session = try database.getSession(allocator);
-    defer session.deinit();
-
+pub fn get(session: *database.Session, token_value: []const u8) !?User {
     const token = try session.query(Token).findBy(
         "value",
         token_value,
     ) orelse return error.InvalidToken;
 
-    const user = try session.find(User, token.user_id) orelse return null;
-
-    return .{
-        .id = user.id,
-        .username = try allocator.dupe(u8, user.username),
-    };
+    return session.find(User, token.user_id);
 }

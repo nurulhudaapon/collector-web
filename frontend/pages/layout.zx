@@ -22,6 +22,25 @@ pub fn Layout(ctx: app.LayoutCtx, children: zx.Component) zx.Component {
         );
     }
 
+    var session = ctx.app.pool.getSession(ctx.arena) catch {
+        ctx.response.setStatus(.internal_server_error);
+        return (
+            <div>
+                Could not connect to database
+            </div>
+        );
+    };
+    defer session.deinit();
+
+    const maybe_user = ctx.state.getUser(&session) catch {
+        ctx.response.setStatus(.internal_server_error);
+        return (
+            <div>
+                Error reading user information from database
+            </div>
+        );
+    };
+
     return (
         <html @allocator={ctx.arena} lang="en-US">
             <head>
@@ -37,7 +56,7 @@ pub fn Layout(ctx: app.LayoutCtx, children: zx.Component) zx.Component {
                     </div>
 
                     <div class="w-2/3 p-2 justify-items-end">
-                        {if (ctx.state.user) |user| (
+                        {if (maybe_user) |user| (
                             <div>
                                 Welcome back, {user.username}
                             </div>

@@ -34,17 +34,28 @@ pub fn build(b: *Build) !void {
     addConfig(usize, b, options_builder, "max_awaitable_promises", 5);
     const options = options_builder.createModule();
 
+    const database = b.createModule(.{
+        .root_source_file = b.path("database/database.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "fridge", .module = fridge.module("fridge") },
+            .{ .name = "options", .module = options },
+        },
+    });
+
     // backend
     const backend = b.addModule("backend", .{
         .root_source_file = b.path("backend/root.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "fridge", .module = fridge.module("fridge") },
+            .{ .name = "database", .module = database },
             .{ .name = "graphqlz", .module = graphqlz.module("graphqlz") },
             .{ .name = "options", .module = options },
             .{ .name = "sdk", .module = sdk.module("sdk") },
         },
+        .sanitize_thread = true,
     });
 
     // frontend
@@ -54,6 +65,7 @@ pub fn build(b: *Build) !void {
         .optimize = optimize,
         .imports = &.{
             .{ .name = "backend", .module = backend },
+            .{ .name = "database", .module = database },
         },
     });
     frontend.addImport("app", frontend);
@@ -85,11 +97,8 @@ pub fn build(b: *Build) !void {
                 .output = b.path("{outdir}/assets/main.js"),
             }),
         },
-        .site = .{
+        .app = .{
             .path = b.path("frontend"),
-        },
-        .experimental = .{
-            .enabled_csr = true,
         },
     };
 

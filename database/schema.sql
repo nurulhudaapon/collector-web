@@ -57,12 +57,12 @@ CREATE TABLE IF NOT EXISTS "Variant" (
     stamps BLOB NOT NULL,
     foil TEXT,
 
-    FOREIGN KEY(card_id) REFERENCES Card(id),
-
     CHECK (type <> ''),
     CHECK (subtype IS NULL OR subtype <> ''),
     CHECK (size IS NULL OR size <> ''),
     CHECK (foil IS NULL OR foil <> ''),
+
+    FOREIGN KEY(card_id) REFERENCES Card(id),
 
     CONSTRAINT different UNIQUE (card_id, type, subtype, size, stamps, foil)
 ) STRICT;
@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS "Owned" (
     variant_id INTEGER NOT NULL,
     owned INTEGER NOT NULL,
 
-    FOREIGN KEY(user_id) REFERENCES user(id),
-    FOREIGN KEY(variant_id) REFERENCES variant(id),
+    CHECK (owned == 0 OR owned == 1),
 
-    CHECK (owned == 0 OR owned == 1)
+    FOREIGN KEY(user_id) REFERENCES user(id),
+    FOREIGN KEY(variant_id) REFERENCES variant(id)
 ) STRICT;

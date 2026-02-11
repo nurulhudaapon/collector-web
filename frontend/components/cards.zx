@@ -3,7 +3,7 @@ const Allocator = std.mem.Allocator;
 
 const zx = @import("zx");
 
-const backend = @import("backend");
+const database = @import("database");
 
 const Size = union(enum) {
     pixels: u16,
@@ -42,61 +42,24 @@ fn title(allocator: std.mem.Allocator, value: anytype) ![]const u8 {
 pub fn Image(
     allocator: zx.Allocator,
     props: struct {
-        card: backend.Card,
+        card: database.Card,
         size: ImageSize = .{ .width = .{ .pixels = 150 } },
     },
 ) !zx.Component {
     return (<img @{allocator} src={props.card.image_url} aria-label={props.card.name} alt="image not found" style={try props.size.toHtml(allocator)} loading="lazy" />);
 }
 
-fn stringLessThan(lhs: []const u8, rhs: []const u8) bool {
-    // foo-8 must be prior to foo-10, can't lexicographically sort on diff len
-    if (lhs.len < rhs.len) return true;
-    if (lhs.len > rhs.len) return false;
-
-    return std.mem.order(u8, lhs, rhs) == .lt;
-}
-
-fn cardLessThanInner(sets: []const backend.Card.Set, lhs: backend.Card, rhs: backend.Card) !bool {
-    // compare tcgdex id, not great due to lack of leading '0' for padding
-    if (lhs.set_id == rhs.set_id) {
-        return stringLessThan(lhs.tcgdex_id, rhs.tcgdex_id);
-    }
-
-    const lhs_set = for (sets) |set| {
-        if (lhs.set_id == set.id) break set;
-    } else return error.SetNotFound;
-
-    const rhs_set = for (sets) |set| {
-        if (rhs.set_id == set.id) break set;
-    } else return error.SetNotFound;
-
-    return stringLessThan(lhs_set.release_date, rhs_set.release_date);
-}
-
-fn cardLessThan(sets: []const backend.Card.Set, lhs: backend.Card, rhs: backend.Card) bool {
-    return cardLessThanInner(sets, lhs, rhs) catch true;
-}
-
 pub fn Cards(
     allocator: zx.Allocator,
     props: struct {
-        cards: []const backend.Card,
+        cards: []const database.Card,
     },
 ) !zx.Component {
-    var session = try backend.database.getSession(allocator);
-    defer session.deinit();
-
-    const sets = try backend.database.findAll(backend.Card.Set, &session, .{});
-
-    const cards = try allocator.dupe(backend.Card, props.cards);
-    std.mem.sort(backend.Card, cards, sets, cardLessThan);
-
     return (
         <div @{allocator}>
-            {if (cards.len == 0) "No cards found" else (
+            {if (props.cards.len == 0) "No cards found" else (
                 <div class="grid lg:grid-cols-10 md:grid-cols-8 sm:grid-cols-6 gap-1">
-                    {for (cards) |card| (
+                    {for (props.cards) |card| (
                         <a href=`/card/{card.tcgdex_id}`>
                             <Image {card} />
                         </a>
@@ -110,7 +73,7 @@ pub fn Cards(
 pub fn Variant(
     allocator: zx.Allocator,
     props: struct {
-        variant: backend.Card.Variant,
+        variant: database.Variant,
     },
 ) !zx.Component {
     return (

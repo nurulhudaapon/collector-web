@@ -3,7 +3,7 @@ const std = @import("std");
 const zx = @import("zx");
 
 const app = @import("app");
-const User = @import("backend").User;
+const database = @import("database");
 
 const auth = @import("../proxy.zx");
 
@@ -15,6 +15,9 @@ fn handleForm(ctx: app.PageCtx) !zx.Component {
     const data = ctx.request.formData();
     const action = data.get("action") orelse return error.MissingAction;
 
+    var session = try ctx.app.pool.getSession(ctx.arena);
+    defer session.deinit();
+
     const is_register = std.mem.eql(u8, action, "register");
     const is_login = std.mem.eql(u8, action, "login");
 
@@ -22,21 +25,21 @@ fn handleForm(ctx: app.PageCtx) !zx.Component {
         const username = data.get("username") orelse return error.MissingUsername;
         const password = data.get("password") orelse return error.MissingPassword;
 
-        const function: *const fn (std.mem.Allocator, User.AuthArgs) anyerror!User.AuthResponse = if (is_register)
-            User.register
+        const function: *const fn (*database.Session, database.User.AuthArgs) anyerror!database.User.AuthResponse = if (is_register)
+            database.User.register
         else
-            User.login;
+            database.User.login;
 
-        const response = try function(ctx.arena, .{
+        const response = try function(&session, .{
             .username = username,
             .password = password,
         });
 
         auth.setToken(&ctx.response, response.token);
     } else if (std.mem.eql(u8, action, "logout")) {
-        const user_id = data.get("user_id") orelse return error.MissingUserId;
+        const user_token = data.get("user_token") orelse return error.MissingUserToken;
 
-        try User.logout(ctx.arena, user_id);
+        try database.User.logout(&session, user_token);
 
         auth.rmToken(&ctx.response);
     } else {
@@ -56,10 +59,10 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
     // TODO: send current window location in form, to redirect back to same page
     return (
         <div @allocator={ctx.arena} class="bg-secondary text-primary rounded-lg shadow-xl p-6 min-w-75 max-w-[95vw]">
-            {if (ctx.state.user) |user| (
+            {if (ctx.state.token) |token| (
                 <div>
                     <form method="post">
-                        <input type="hidden" name="user_id" value={user.id} />
+                        <input type="hidden" name="user_token" value={token} />
 
                         <input type="submit" name="action" value="logout" />
                     </form>
