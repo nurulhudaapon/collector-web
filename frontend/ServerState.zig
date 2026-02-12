@@ -40,6 +40,7 @@ pub fn init(allocator: std.mem.Allocator) !ServerState {
     var session = try pool.getSession(allocator);
     defer session.deinit();
 
+    std.log.info("database at {?s}/{s}", .{ options.dir, options.filename });
     try database.migrate(&session, database.schema);
 
     return .{

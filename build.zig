@@ -55,7 +55,6 @@ pub fn build(b: *Build) !void {
             .{ .name = "options", .module = options },
             .{ .name = "sdk", .module = sdk.module("sdk") },
         },
-        .sanitize_thread = true,
     });
 
     // frontend

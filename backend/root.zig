@@ -12,7 +12,7 @@ const graphqlz = @import("graphqlz");
 
 const database = @import("database");
 
-const graphql = graphqlz.Client("http://localhost:3000/v3/graphql", @import("graphql-schema.zig"));
+const graphql = graphqlz.Client("https://tcgdex.elpekenin.dev/v3/graphql", @import("graphql-schema.zig"));
 
 fn parseEnum(comptime T: type, str: []const u8) T {
     return std.meta.stringToEnum(T, str) orelse {
@@ -68,6 +68,7 @@ fn fetchCard(allocator: Allocator, session: *database.Session, card: anytype) !u
     defer if (free_image_url) allocator.free(image_url);
 
     const set_id = try database.save(database.Set, session, .{
+        .tcgdex_id = card.set.id,
         .name = card.set.name,
         .release_date = card.set.releaseDate orelse "0000-00-00",
     });
@@ -123,6 +124,7 @@ pub fn fetch(session: *database.Session, name: []const u8) !usize {
             .name = true,
             .image = true,
             .set = .{
+                .id = true,
                 .logo = true,
                 .name = true,
                 .releaseDate = true,

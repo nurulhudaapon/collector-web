@@ -1,0 +1,26 @@
+const std = @import("std");
+
+const zx = @import("zx");
+
+const app = @import("app");
+const database = @import("database");
+
+const Cards = @import("../../../components/cards.zx").Cards;
+
+pub fn Page(ctx: app.PageCtx) !zx.Component {
+    const tcgdex_id = ctx.request.getParam("tcgdex_id") orelse return error.MissingTcgdexId;
+
+    var session = try ctx.app.pool.getSession(ctx.arena);
+    defer session.deinit();
+
+    const set = try database.findOne(database.Set, &session, .{
+        .tcgdex_id = tcgdex_id,
+    }) orelse return error.UnknownSet;
+
+    const out_of_order = try set.cards(&session);
+
+    const cards = try database.Card.sort(ctx.arena, out_of_order, &.{});
+    defer ctx.arena.free(cards);
+
+    return (<Cards @allocator={ctx.arena} {cards} />);
+}

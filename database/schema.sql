@@ -27,9 +27,11 @@ CREATE TABLE IF NOT EXISTS "Secret" (
 --------
 CREATE TABLE IF NOT EXISTS "Set_" (
     id INTEGER PRIMARY KEY NOT NULL,
+    tcgdex_id TEXT NOT NULL,
     name TEXT NOT NULL,
     release_date TEXT NOT NULL,
 
+    CHECK (tcgdex_id <> ''),
     CHECK (name <> ''),
     CHECK (release_date <> '')
 ) STRICT;

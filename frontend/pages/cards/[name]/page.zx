@@ -20,16 +20,15 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
 
     const wildcard = try std.fmt.allocPrint(ctx.arena, "%{s}%", .{needle});
 
-    const cards = try session
+    const out_of_order = try session
         .query(database.Card)
         .whereRaw("name LIKE ?", .{wildcard})
-        .orderBy(.id, .asc)
         .findAll();
 
     const sets = try database.findAll(database.Set, &session, .{});
 
-    const sorted = try database.Card.sort(ctx.arena, cards, sets);
-    defer ctx.arena.free(sorted);
+    const cards = try database.Card.sort(ctx.arena, out_of_order, sets);
+    defer ctx.arena.free(cards);
 
-    return (<Cards @allocator={ctx.arena} cards={sorted} />);
+    return (<Cards @allocator={ctx.arena} {cards} />);
 }
