@@ -29,7 +29,7 @@ const Environment = enum {
 pub fn init(ctx: *zx.ProxyContext, cookie_name: []const u8) ProxyState {
     return .{
         .token = ctx.request.cookies.get(cookie_name),
-        .env = .fromUrl(ctx.request.headers.get("Host")),
+        .env = .fromUrl(ctx.request.headers.get("host")),
     };
 }
 
