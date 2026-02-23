@@ -7,41 +7,61 @@ const wasm = @import("../wasm.zig");
 
 fn onWriteText(_: js.Object) !void {}
 
-fn onClickInner(ctx: zx.EventContext) !void {
+fn copyTextInner(ctx: zx.EventContext) !void {
     const target = ctx.getEvent().getTarget() orelse return;
 
-    const content: []const u8 = try target.callAlloc(
+    const content_id: []const u8 = try target.callAlloc(
         js.String,
         wasm.allocator,
         "getAttribute",
-        .{js.string("content")},
+        .{js.string("contentId")},
+    );
+    defer wasm.allocator.free(content_id);
+
+    const document: js.Object = try js.global.get(js.Object, "document");
+    const content_div: js.Object = try document.call(
+        js.Object,
+        "getElementById",
+        .{js.string(content_id)},
+    );
+
+    const content: []const u8 = try content_div.getAlloc(
+        js.String,
+        wasm.allocator,
+        "textContent",
     );
     defer wasm.allocator.free(content);
 
     const navigator: js.Object = try js.global.get(js.Object, "navigator");
     const clipboard: js.Object = try navigator.get(js.Object, "clipboard");
 
-    const promise: js.Object = try clipboard.call(js.Object, "writeText", .{js.string(content)});
+    const promise: js.Object = try clipboard.call(
+        js.Object,
+        "writeText",
+        .{js.string(content)},
+    );
+
     try wasm.js.await(promise, .{
         .onFulfill = onWriteText,
     });
 }
 
-fn onClick(ctx: zx.EventContext) void {
+fn copyText(ctx: zx.EventContext) void {
     if (zx.platform != .browser) return;
-    onClickInner(ctx) catch {};
+    copyTextInner(ctx) catch {};
 }
 
 pub fn CopyText(
     allocator: zx.Allocator,
     props: struct {
         display: []const u8,
-        content: []const u8,
+        content_id: []const u8,
     },
 ) !zx.Component {
     return (
-        <button @{allocator} onclick={onClick} content={props.content}>
-            {props.display}
+        <button @{allocator} onclick={copyText} contentId={props.content_id} aria-label="Copy to clipboard" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-zinc-800 transition">
+            <span>{props.display}</span>
+            <span class="text-xs opacity-70">📋</span>
         </button>
     );
 }

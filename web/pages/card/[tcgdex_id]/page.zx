@@ -34,7 +34,14 @@ fn onText(text: js.Object) !void {
         .value = @enumFromInt(parsed.value.js_ref),
     };
 
-    try element.set("className", js.string(styleFor(parsed.value.owned)));
+    const class_buf = try std.fmt.allocPrint(
+        wasm.allocator,
+        "{s} {s}",
+        .{ "inline-flex items-center px-4 py-2 rounded-md border transition", styleFor(parsed.value.owned) },
+    );
+    defer wasm.allocator.free(class_buf);
+
+    try element.set("className", js.string(class_buf));
     try element.call(
         void,
         "setAttribute",
@@ -50,7 +57,7 @@ fn onResponse(response: js.Object) !void {
     try wasm.text(response, onText);
 }
 
-fn onClickInner(ctx: zx.EventContext) !void {
+fn toggleOwnedInner(ctx: zx.EventContext) !void {
     const target = ctx.getEvent().getTarget() orelse return;
 
     const base_url = try target.callAlloc(
@@ -79,9 +86,9 @@ fn onClickInner(ctx: zx.EventContext) !void {
     try wasm.fetch(url, onResponse);
 }
 
-fn onClick(ctx: zx.EventContext) void {
+fn toggleOwned(ctx: zx.EventContext) void {
     if (zx.platform != .browser) return;
-    onClickInner(ctx) catch {};
+    toggleOwnedInner(ctx) catch {};
 }
 
 fn urlFor(is_owned: bool) []const u8 {
@@ -94,9 +101,9 @@ fn urlFor(is_owned: bool) []const u8 {
 
 fn styleFor(is_owned: bool) []const u8 {
     return if (is_owned)
-        "text-green-600"
+        "text-green-600 border-green-300 hover:bg-green-50"
     else
-        "text-red-600";
+        "text-red-600 border-red-300 hover:bg-red-50";
 }
 
 const ButtonProps = struct {
@@ -107,7 +114,7 @@ const ButtonProps = struct {
 
 pub fn Button(allocator: zx.Allocator, props: ButtonProps) !zx.Component {
     return (
-        <button @{allocator} onclick={onClick} class={styleFor(props.is_owned)} base_url={urlFor(props.is_owned)} variant_id={props.variant_id}>
+        <button @{allocator} onclick={toggleOwned} class=`inline-flex items-center px-4 py-2 rounded-md border transition {styleFor(props.is_owned)}` base_url={urlFor(props.is_owned)} variant_id={props.variant_id} aria-pressed={if (props.is_owned) "true" else "false"}>
             {props.text}
         </button>
     );
@@ -120,9 +127,11 @@ pub fn Buttons(
     },
 ) !zx.Component {
     return (
-        <div @allocator={allocator} class="flex flex-col">
+        <div @allocator={allocator} class="flex flex-col gap-2">
             {for (props.buttons) |button| (
-                <Button {..button} />
+                <div class="w-full">
+                    <Button {..button} />
+                </div>
             )}
         </div>
     );
@@ -152,7 +161,7 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
 
     const variants = try card.getVariants(&session);
 
-    const img_size: cards.ImageSize = .{ .width = .{ .pixels = 400 } };
+    const img_size: cards.ImageSize = .{ .width = .{ .pixels = 320 } };
 
     const buttons = try ctx.allocator.alloc(ButtonProps, variants.len);
     for (variants, 0..) |variant, i| {
@@ -164,25 +173,35 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
     }
 
     return (
-        <div @allocator={ctx.arena} class="w-full items-center">
-            <p class="text-7xl">
-                {card.name} (<a href=`/set/{set.tcgdex_id}`>{set.name}</a>)
+        <div @allocator={ctx.arena} class="max-w-4xl mx-auto p-6">
+            <p class="text-4xl font-bold leading-tight">
+                {card.name}
             </p>
 
-            <span class="pb-10" />
+            <p class="text-sm text-gray-500 mt-2">ID: {card.tcgdex_id} · Variants: {variants.len}</p>
 
-            <div class="w-full h-full flex items-center">
-                {if (card.cardmarket_id) |id| (
-                    <a href=`https://www.cardmarket.com/Pokemon/Products?idProduct={id}` title="go to cardmarket">
-                        <Image {card} size={img_size} />
-                    </a>
-                ) else (
-                    <Image {card} size={img_size} />
-                )}
+            <div class="mt-6 w-full h-full flex flex-col md:flex-row md:items-center gap-8">
+                <div class="shrink-0">
+                    {if (card.cardmarket_id) |id| (
+                        <a href=`https://www.cardmarket.com/Pokemon/Products?idProduct={id}` title="go to cardmarket" class="block shadow-sm rounded-md overflow-hidden">
+                            <Image {card} size={img_size} />
+                        </a>
+                    ) else (
+                        <div class="block shadow-sm rounded-md overflow-hidden">
+                            <Image {card} size={img_size} />
+                        </div>
+                    )}
 
-                <span class="pr-10" />
+                    <div class="text-sm text-gray-700 mt-2">
+                        <p class="mb-0">Set: <a href=`/set/{set.tcgdex_id}` class="text-blue-600 hover:underline">{set.name}</a></p>
+                    </div>
+                </div>
 
-                <Buttons @rendering={.client} {buttons} />
+                <div class="flex-1">
+                    <div class="mb-4">
+                        <Buttons @rendering={.client} {buttons} />
+                    </div>
+                </div>
             </div>
         </div>
     );

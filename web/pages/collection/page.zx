@@ -41,7 +41,7 @@ fn onResponse(response: js.Object) !void {
     try wasm.text(response, onText);
 }
 
-fn onClickInner(ctx: zx.EventContext) !void {
+fn toggleTrackingInner(ctx: zx.EventContext) !void {
     const target = ctx.getEvent().getTarget() orelse return;
 
     const base_url = try target.callAlloc(
@@ -70,9 +70,9 @@ fn onClickInner(ctx: zx.EventContext) !void {
     try wasm.fetch(url, onResponse);
 }
 
-fn onClick(ctx: zx.EventContext) void {
+fn toggleTracking(ctx: zx.EventContext) void {
     if (zx.platform != .browser) return;
-    onClickInner(ctx) catch {};
+    toggleTrackingInner(ctx) catch {};
 }
 
 const ButtonProps = struct {
@@ -82,6 +82,7 @@ const ButtonProps = struct {
 };
 
 fn urlFor(is_tracked: bool) []const u8 {
+    // NOTE: `/` in URL will be added in onClick's handler
     return if (is_tracked)
         "/api/untrack"
     else
@@ -89,16 +90,17 @@ fn urlFor(is_tracked: bool) []const u8 {
 }
 
 fn styleFor(is_tracked: bool) []const u8 {
-    // NOTE: `/` in URL will be added in onClick's handler
     return if (is_tracked)
-        "text-green-600"
+        "px-3 py-1 rounded border border-green-600 text-white bg-green-600 hover:bg-green-700 font-semibold"
     else
-        "";
+        "px-3 py-1 rounded border border-gray-300 text-gray-900 bg-white hover:bg-gray-100 font-medium";
 }
 
 pub fn Button(allocator: zx.Allocator, props: ButtonProps) !zx.Component {
+    const title = if (props.is_tracked) "Click to untrack" else "Click to track";
+    const pressed = if (props.is_tracked) "true" else "false";
     return (
-        <button @{allocator} onclick={onClick} class={styleFor(props.is_tracked)} base_url={urlFor(props.is_tracked)} pokedex={props.pokedex}>
+        <button @{allocator} onclick={toggleTracking} class={styleFor(props.is_tracked)} base_url={urlFor(props.is_tracked)} pokedex={props.pokedex} aria-pressed={pressed} title={title}>
             {props.text}
         </button>
     );
@@ -109,7 +111,7 @@ pub fn Buttons(
     props: struct { buttons: []const ButtonProps },
 ) !zx.Component {
     return (
-        <div @{allocator} class="flex flex-col">
+        <div @{allocator} class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
             {for (props.buttons) |button| (
                 <Button {..button} />
             )}
@@ -145,7 +147,10 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
 
     return (
         <div @allocator={ctx.allocator} class="flex flex-col">
-            <a href="/progress">
+            <h1 class="text-2xl font-semibold mb-2">Your Collection</h1>
+            <p class="text-sm text-gray-600 mb-4">Manage which species you track — click a card to toggle tracking.</p>
+
+            <a href="/progress" class="text-sm text-blue-600 hover:underline mb-4">
                 See your progress
             </a>
 

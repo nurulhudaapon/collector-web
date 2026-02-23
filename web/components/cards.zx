@@ -21,6 +21,8 @@ pub const ImageSize = union(enum) {
     height: Size,
     width: Size,
 
+    const default: ImageSize = .{ .width = .{ .pixels = 150 } };
+
     pub fn toHtml(self: ImageSize, allocator: Allocator) ![]const u8 {
         return switch (self) {
             .height => |height| std.fmt.allocPrint(allocator, "height: {s}", .{try height.toHtml(allocator)}),
@@ -33,7 +35,7 @@ pub fn Image(
     allocator: zx.Allocator,
     props: struct {
         card: database.Card,
-        size: ImageSize = .{ .width = .{ .pixels = 150 } },
+        size: ImageSize = .default,
     },
 ) !zx.Component {
     return (<img @{allocator} src={props.card.image_url} aria-label={props.card.name} alt="image not found" style={try props.size.toHtml(allocator)} loading="lazy" />);
@@ -43,6 +45,7 @@ pub fn Cards(
     allocator: zx.Allocator,
     props: struct {
         cards: []const database.Card,
+        size: ImageSize = .default,
     },
 ) !zx.Component {
     return (
@@ -51,7 +54,7 @@ pub fn Cards(
                 <div class="grid lg:grid-cols-10 md:grid-cols-8 sm:grid-cols-6 gap-1">
                     {for (props.cards) |card| (
                         <a href=`/card/{card.tcgdex_id}`>
-                            <Image {card} />
+                            <Image card={card} size={props.size} />
                         </a>
                     )}
                 </div>

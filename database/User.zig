@@ -163,10 +163,10 @@ pub fn login(session: *database.Session, args: AuthArgs) !AuthResponse {
     return .init(allocator, session, user.id, user.username);
 }
 
-pub fn logout(session: *database.Session, token_value: []const u8) !void {
+pub fn logout(self: *const User, session: *database.Session) !void {
     try session
         .query(Token)
-        .where("value", token_value)
+        .where("user_id", self.id)
         .delete()
         .exec();
 }
@@ -180,7 +180,12 @@ pub fn get(session: *database.Session, token_value: []const u8) !?User {
     return session.find(User, token.user_id);
 }
 
-pub fn getTrackedCards(self: *const User, session: *database.Session) ![]const database.Card {
+const UserTracking = struct {
+    species: []const database.Tracked,
+    cards: []const database.Card,
+};
+
+pub fn getTracked(self: *const User, session: *database.Session) !UserTracking {
     const species = try session
         .query(database.Tracked)
         .where("user_id", self.id)
@@ -188,7 +193,10 @@ pub fn getTrackedCards(self: *const User, session: *database.Session) ![]const d
         .findAll();
 
     if (species.len == 0) {
-        return &.{};
+        return .{
+            .species = &.{},
+            .cards = &.{},
+        };
     }
 
     var query = session.query(database.Card);
@@ -202,7 +210,10 @@ pub fn getTrackedCards(self: *const User, session: *database.Session) ![]const d
         query = query.orWhereRaw("dex_ids LIKE ?", .{wildcard});
     }
 
-    return query.findAll();
+    return .{
+        .species = species,
+        .cards = try query.findAll(),
+    };
 }
 
 pub fn isTracking(self: *const User, session: *database.Session, species: database.Species) !bool {

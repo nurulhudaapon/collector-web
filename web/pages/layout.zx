@@ -1,17 +1,43 @@
 const std = @import("std");
 
 const zx = @import("zx");
+const js = zx.Client.js;
 
 const app = @import("app");
 const backend = @import("backend");
 
 const auth_proxy = @import("proxy.zx");
 const routing = @import("../routing.zig");
+const wasm = @import("../wasm.zig");
 
 const appname = "collector";
 
 const header_height = 16;
 const footer_height = 16;
+
+fn onResponse(_: js.Object) !void {
+    const window: js.Object = try js.global.get(js.Object, "window");
+    const navigation: js.Object = try window.get(js.Object, "navigation");
+    try navigation.call(void, "reload", .{});
+}
+
+fn logoutInner(_: zx.EventContext) !void {
+    try wasm.fetch("/api/auth/logout", onResponse);
+}
+
+fn logout(ctx: zx.EventContext) void {
+    if (zx.platform != .browser) return;
+    logoutInner(ctx) catch {};
+}
+
+pub fn User(allocator: zx.Allocator, props: struct { username: []const u8 }) !zx.Component {
+    if (zx.platform != .browser) return .none;
+    return (
+        <div @{allocator} class="text-sm" onclick={logout} title="Logout">
+            {props.username}
+        </div>
+    );
+}
 
 pub fn Layout(ctx: app.LayoutCtx, children: zx.Component) zx.Component {
     if (routing.isApi(ctx.request.url)) {
@@ -44,38 +70,55 @@ pub fn Layout(ctx: app.LayoutCtx, children: zx.Component) zx.Component {
     return (
         <html @allocator={ctx.arena} lang="en-US">
             <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <title>{appname}</title>
                 <link rel="stylesheet" href="/assets/styles.css" />
                 <link rel="icon" href="/favicon.svg" sizes="any" type="image/svg+xml" />
             </head>
 
-            <body class="h-screen bg-primary text-secondary flex flex-col">
-                <header class=`h-{header_height} bg-accent2 flex items-center`>
-                    <a href="https://github.com/elpekenin/collector-web" class="flex flex-row">
-                        <img src="/GitHubLogo.svg" width="32px" title="Source" />
-                    </a>
+            <body class="h-screen overflow-hidden bg-primary text-secondary flex flex-col font-sans">
+                <header class=`fixed top-0 left-0 w-full h-{header_height} bg-accent2 shadow-sm z-50`>
+                    <div class="max-w-6xl mx-auto px-4 h-full flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <a href="https://github.com/elpekenin/collector-web" title="Source" class="flex items-center">
+                                <img src="/GitHubLogo.svg" width="36" height="36" class="block" />
+                            </a>
+                            <a href="/" class="flex items-center">
+                                <span class="text-lg font-semibold leading-none">{appname}</span>
+                            </a>
+                        </div>
 
-                    <div class="w-full justify-items-end">
-                        {if (maybe_user) |user| (
-                            <div>
-                                Welcome back, {user.username}
-                            </div>
-                        ) else (
-                            <div>
-                                <a href="/auth">
-                                    Authenticate
-                                </a>
-                            </div>
-                        )}
+                        <nav class="hidden md:flex gap-6 text-sm">
+                            <a href="/collection" class="hover:underline">Collection</a>
+                            <a href="/progress" class="hover:underline">Progress</a>
+                            <a href="/credits" class="hover:underline">Credits</a>
+                        </nav>
+
+                        <div class="flex items-center gap-3">
+                            {if (maybe_user) |user| (
+                                <div class="flex items-center gap-2">
+                                    <User @rendering={.client} username={user.username} />
+                                </div>
+                            ) else (
+                                <a href="/auth" class="px-3 py-1 bg-accent rounded-md text-sm hover:opacity-90">Sign in</a>
+                            )}
+                        </div>
                     </div>
                 </header>
 
-                <main class="flex-1 w-full overflow-auto">
-                    {children}
+                <main class=`flex-1 w-full overflow-auto pt-{header_height} pb-{footer_height}`>
+                    <div class="max-w-6xl mx-auto px-4 py-8 mt-5 mb-5">
+                        {children}
+                    </div>
                 </main>
 
-                <footer class=`h-{footer_height} bg-accent2 flex items-center justify-center`>
-                    Made with love, by <a href="https://github.com/elpekenin">@elpekenin</a>
+                <footer class=`fixed bottom-0 left-0 w-full h-{footer_height} bg-accent2 flex items-center z-50`>
+                    <div class="max-w-6xl mx-auto px-4 w-full text-sm flex items-center justify-center">
+                        <div>
+                            Made with ❤️ by
+                            <a href="https://github.com/elpekenin">@elpekenin</a>
+                        </div>
+                    </div>
                 </footer>
             </body>
         </html>

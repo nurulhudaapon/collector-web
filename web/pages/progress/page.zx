@@ -37,6 +37,19 @@ fn textSummary(
     return aw.toOwnedSlice();
 }
 
+fn genId(buffer: []u8) void {
+    const options = std.ascii.letters;
+
+    for (buffer) |*char| {
+        const index = std.crypto.random.uintLessThan(u8, options.len);
+        char.* = options[index];
+    }
+}
+
+fn tof32(val: usize) f32 {
+    return @floatFromInt(val);
+}
+
 pub fn Page(ctx: app.PageCtx) !zx.Component {
     var session = try ctx.app.pool.getSession(ctx.arena);
     defer session.deinit();
@@ -49,8 +62,8 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
         );
     };
 
-    const cards = try user.getTrackedCards(&session);
-    if (cards.len == 0) {
+    const tracked = try user.getTracked(&session);
+    if (tracked.species.len == 0) {
         return (
             <div>
                 You are not tracking any species
@@ -62,13 +75,56 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
         .query(database.Set)
         .findAll();
 
-    const sorted = try database.Card.sort(ctx.arena, cards, sets);
+    const sorted = try database.Card.sort(ctx.arena, tracked.cards, sets);
 
     const summary = try textSummary(ctx.arena, &session, user.id, sorted);
 
+    // compute totals and owned/missing counts for progress display
+    var total: usize = 0;
+    var missing: usize = 0;
+    for (sorted) |card| {
+        const variants = try card.getVariants(&session);
+        total += variants.len;
+        for (variants) |variant| {
+            const owned = try variant.ownedBy(&session, user.id);
+            if (!owned) {
+                missing += 1;
+            }
+        }
+    }
+
+    const owned = total - missing;
+    const percent: f32 = if (total == 0) 0 else tof32(owned) * 100 / tof32(total);
+    const percent_txt = try std.fmt.allocPrint(ctx.arena, "{d:.2}", .{percent});
+    const percent_style = try std.fmt.allocPrint(ctx.arena, "width: {}%", .{std.math.round(percent)});
+
+    var id: [20]u8 = @splat(0);
+    genId(&id);
+
     return (
         <>
-            <CopyText @rendering={.client} display="Copy missing cards to clipboard" content={summary} />
+            <div class="mb-4">
+                <h1 class="text-2xl font-bold mb-2">Progress</h1>
+
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="text-sm text-gray-600">Species: <strong>{tracked.species.len}</strong></div>
+                    <div class="text-sm text-gray-600">Cards: <strong>{sorted.len}</strong></div>
+                </div>
+
+                <div class="w-full bg-gray-200 rounded h-4 overflow-hidden mb-3">
+                    <div class="bg-accent2 h-4" style={percent_style} />
+                </div>
+
+                <div class="mb-2 flex items-center justify-between">
+                    <div class="text-sm">
+                        {percent_txt}% complete ({owned}/{total} variants)
+                    </div>
+
+                    <CopyText @rendering={.client} display="Copy missing cards" content_id={&id} />
+                </div>
+            </div>
+
+            <div class="hidden" id={&id}>{summary}</div>
             <Cards cards={sorted} />
         </>
     );

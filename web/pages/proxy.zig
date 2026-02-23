@@ -15,13 +15,6 @@ pub fn setToken(response: *const zx.Response, token: []const u8) void {
     });
 }
 
-pub fn rmToken(response: *const zx.Response) void {
-    response.setCookie(cookie_name, "", .{
-        .path = "/",
-        .max_age = 0,
-    });
-}
-
 const Redirect = struct {
     from: []const u8,
     to: []const u8,

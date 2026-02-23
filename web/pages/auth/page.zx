@@ -36,12 +36,6 @@ fn handleForm(ctx: app.PageCtx) !zx.Component {
         });
 
         auth.setToken(&ctx.response, response.token);
-    } else if (std.mem.eql(u8, action, "logout")) {
-        const user_token = data.get("user_token") orelse return error.MissingUserToken;
-
-        try database.User.logout(&session, user_token);
-
-        auth.rmToken(&ctx.response);
     } else {
         return error.InvalidAction;
     }
@@ -56,32 +50,34 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
         return handleForm(ctx);
     }
 
-    // TODO: send current window location in form, to redirect back to same page
     return (
-        <div @allocator={ctx.arena} class="bg-secondary text-primary rounded-lg shadow-xl p-6 min-w-75 max-w-[95vw]">
-            {if (ctx.state.token) |token| (
-                <div>
-                    <form method="post">
-                        <input type="hidden" name="user_token" value={token} />
+        <div @allocator={ctx.arena} class="min-h-screen flex items-center justify-center px-4">
+            {if (ctx.state.token == null) (
+                <div class="w-full max-w-sm bg-zinc-900 rounded-xl shadow-xl p-6">
+                    <form method="post" class="space-y-4">
+                        <div class="space-y-1">
+                            <label for="username" class="text-sm text-zinc-400">
+                                Username
+                            </label>
+                            <input id="username" name="username" type="text" required class="w-full px-3 py-2 rounded-md bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
 
-                        <input type="submit" name="action" value="logout" />
-                    </form>
-                </div>
-            ) else (
-                <div>
-                    <form method="post">
-                        <fieldset>
-                            <legend>Username</legend>
-                            <input id="username" name="username" type="text" required />
-                        </fieldset>
+                        <div class="space-y-1">
+                            <label for="password" class="text-sm text-zinc-400">
+                                Password
+                            </label>
+                            <input id="password" name="password" type="password" required class="w-full px-3 py-2 rounded-md bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
 
-                        <fieldset>
-                            <legend>Password</legend>
-                            <input id="password" name="password" type="password" required />
-                        </fieldset>
+                        <div class="flex gap-3 pt-2">
+                            <button type="submit" name="action" value="login" class="flex-1 px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
+                                Login
+                            </button>
 
-                        <input type="submit" name="action" value="login" />
-                        <input type="submit" name="action" value="register" />
+                            <button type="submit" name="action" value="register" class="flex-1 px-3 py-2 rounded-md bg-zinc-700 text-white hover:bg-zinc-600 transition">
+                                Register
+                            </button>
+                        </div>
                     </form>
                 </div>
             )}
