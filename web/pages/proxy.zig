@@ -26,6 +26,10 @@ const redirects: []const Redirect = &.{
     .init("/", "/collection/"),
 };
 
+const prevent_caching: []const []const u8 = &.{
+    "/collection",
+};
+
 pub fn Proxy(ctx: *zx.ProxyContext) !void {
     const state: app.ProxyState = .init(ctx, cookie_name);
     ctx.state(state);
@@ -41,6 +45,15 @@ pub fn Proxy(ctx: *zx.ProxyContext) !void {
             ctx.response.setHeader("Location", redirect.to);
 
             ctx.abort();
+        }
+    }
+
+    for (prevent_caching) |url| {
+        if (std.mem.eql(u8, ctx.request.pathname, url)) {
+            ctx.response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            ctx.response.setHeader("Pragma", "no-cache");
+            ctx.response.setHeader("Expires", "0");
+            break;
         }
     }
 

@@ -78,7 +78,7 @@ fn toggleOwnedInner(ctx: zx.EventContext) !void {
 
     const url = try std.fmt.allocPrint(
         wasm.allocator,
-        "{s}/{s}/{}",
+        "{s}?variant_id={s}&js_ref={}",
         .{ base_url, variant_id, @intFromEnum(target.value) },
     );
     defer wasm.allocator.free(url);
@@ -194,6 +194,15 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
 
                     <div class="text-sm text-gray-700 mt-2">
                         <p class="mb-0">Set: <a href=`/set/{set.tcgdex_id}` class="text-blue-600 hover:underline">{set.name}</a></p>
+
+                        <div class="mt-4">
+                            <a href="/progress" class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-300 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                </svg>
+                                Back to progress
+                            </a>
+                        </div>
                     </div>
                 </div>
 

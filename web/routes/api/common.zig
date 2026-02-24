@@ -10,10 +10,10 @@ comptime {
 }
 
 pub fn owned(ctx: app.RouteCtx, is_owned: bool) !void {
-    const variant_id_str = ctx.request.getParam("variant_id") orelse return error.MissingVariantId;
+    const variant_id_str = ctx.request.searchParams.get("variant_id") orelse return error.MissingVariantId;
     const variant_id = try std.fmt.parseInt(api.database.Id, variant_id_str, 10);
 
-    const js_ref_str = ctx.request.getParam("js_ref") orelse return error.MissingJsRef;
+    const js_ref_str = ctx.request.searchParams.get("js_ref") orelse return error.MissingJsRef;
     const js_ref = try std.fmt.parseInt(api.js.Ref, js_ref_str, 10);
 
     var session = try ctx.app.pool.getSession(ctx.arena);
@@ -49,10 +49,10 @@ pub fn owned(ctx: app.RouteCtx, is_owned: bool) !void {
 }
 
 pub fn tracked(ctx: app.RouteCtx, is_tracked: bool) !void {
-    const pokedex_str = ctx.request.getParam("species_dex") orelse return error.MissingDex;
+    const pokedex_str = ctx.request.searchParams.get("pokedex") orelse return error.MissingDex;
     const pokedex = try std.fmt.parseInt(api.database.Int, pokedex_str, 10);
 
-    const js_ref_str = ctx.request.getParam("js_ref") orelse return error.MissingJsRef;
+    const js_ref_str = ctx.request.searchParams.get("js_ref") orelse return error.MissingJsRef;
     const js_ref = try std.fmt.parseInt(api.js.Ref, js_ref_str, 10);
 
     var session = try ctx.app.pool.getSession(ctx.arena);

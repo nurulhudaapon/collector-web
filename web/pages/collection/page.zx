@@ -62,7 +62,7 @@ fn toggleTrackingInner(ctx: zx.EventContext) !void {
 
     const url = try std.fmt.allocPrint(
         wasm.allocator,
-        "{s}/{s}/{}",
+        "{s}?pokedex={s}&js_ref={}",
         .{ base_url, pokedex, @intFromEnum(target.value) },
     );
     defer wasm.allocator.free(url);
