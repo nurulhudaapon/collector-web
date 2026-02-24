@@ -11,36 +11,39 @@ pub const options: zx.PageOptions = .{
     .methods = &.{ .GET, .POST },
 };
 
+const Action = enum {
+    register,
+    login,
+};
+
 fn handleForm(ctx: app.PageCtx) !zx.Component {
     const data = ctx.request.formData();
-    const action = data.get("action") orelse return error.MissingAction;
+    const action_raw = data.get("action") orelse return error.MissingAction;
 
     var session = try ctx.app.pool.getSession(ctx.arena);
     defer session.deinit();
 
-    const is_register = std.mem.eql(u8, action, "register");
-    const is_login = std.mem.eql(u8, action, "login");
+    const action = std.meta.stringToEnum(Action, action_raw) orelse return error.InvalidAction;
 
-    if (is_register or is_login) {
-        const username = data.get("username") orelse return error.MissingUsername;
-        const password = data.get("password") orelse return error.MissingPassword;
+    const username = data.get("username") orelse return error.MissingUsername;
+    const password = data.get("password") orelse return error.MissingPassword;
 
-        const function: *const fn (*database.Session, database.User.AuthArgs) anyerror!database.User.AuthResponse = if (is_register)
-            database.User.register
-        else
-            database.User.login;
+    const function: *const fn (*database.Session, database.User.AuthArgs) anyerror!database.User.AuthResponse = switch (action) {
+        .register => database.User.register,
+        .login => database.User.login,
+    };
 
-        const response = try function(&session, .{
-            .username = username,
-            .password = password,
-        });
+    const response = try function(&session, .{
+        .username = username,
+        .password = password,
+    });
 
-        auth.setToken(&ctx.response, response.token);
-    } else {
-        return error.InvalidAction;
-    }
+    auth.setToken(&ctx.response, response.token);
 
-    ctx.response.redirect("/", 302);
+    std.log.info("{s} logged in", .{response.user.username});
+
+    const origin = ctx.request.searchParams.get("origin") orelse "/";
+    ctx.response.redirect(origin, 302);
 
     return .none;
 }
@@ -50,37 +53,46 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
         return handleForm(ctx);
     }
 
+    var session = try ctx.app.pool.getSession(ctx.arena);
+    defer session.deinit();
+
+    if (try ctx.state.getUser(&session)) |_| {
+        return (
+            <div>
+                Already logged in
+            </div>
+        );
+    }
+
     return (
         <div @allocator={ctx.arena} class="min-h-screen flex items-center justify-center px-4">
-            {if (ctx.state.token == null) (
-                <div class="w-full max-w-sm bg-zinc-900 rounded-xl shadow-xl p-6">
-                    <form method="post" class="space-y-4">
-                        <div class="space-y-1">
-                            <label for="username" class="text-sm text-zinc-400">
-                                Username
-                            </label>
-                            <input id="username" name="username" type="text" required class="w-full px-3 py-2 rounded-md bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        </div>
+            <div class="w-full max-w-sm bg-zinc-900 rounded-xl shadow-xl p-6">
+                <form method="post" class="space-y-4">
+                    <div class="space-y-1">
+                        <label for="username" class="text-sm text-zinc-400">
+                             Username
+                        </label>
+                        <input id="username" name="username" type="text" required class="w-full px-3 py-2 rounded-md bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
 
-                        <div class="space-y-1">
-                            <label for="password" class="text-sm text-zinc-400">
-                                Password
-                            </label>
-                            <input id="password" name="password" type="password" required class="w-full px-3 py-2 rounded-md bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        </div>
+                    <div class="space-y-1">
+                        <label for="password" class="text-sm text-zinc-400">
+                             Password
+                        </label>
+                        <input id="password" name="password" type="password" required class="w-full px-3 py-2 rounded-md bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
 
-                        <div class="flex gap-3 pt-2">
-                            <button type="submit" name="action" value="login" class="flex-1 px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
-                                Login
-                            </button>
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" name="action" value="login" class="flex-1 px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
+                             Login
+                        </button>
 
-                            <button type="submit" name="action" value="register" class="flex-1 px-3 py-2 rounded-md bg-zinc-700 text-white hover:bg-zinc-600 transition">
-                                Register
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
+                        <button type="submit" name="action" value="register" class="flex-1 px-3 py-2 rounded-md bg-zinc-700 text-white hover:bg-zinc-600 transition">
+                             Register
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }

@@ -111,7 +111,7 @@ pub fn Buttons(
     props: struct { buttons: []const ButtonProps },
 ) !zx.Component {
     return (
-        <div @{allocator} class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+        <div @{allocator} class="grid grid-cols-3 gap-2">
             {for (props.buttons) |button| (
                 <Button {..button} />
             )}

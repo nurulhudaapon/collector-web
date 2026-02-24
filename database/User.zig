@@ -175,7 +175,7 @@ pub fn get(session: *database.Session, token_value: []const u8) !?User {
     const token = try session.query(Token).findBy(
         "value",
         token_value,
-    ) orelse return error.InvalidToken;
+    ) orelse return null;
 
     return session.find(User, token.user_id);
 }

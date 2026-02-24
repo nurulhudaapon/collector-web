@@ -103,6 +103,8 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
 
     return (
         <>
+            <div class="hidden" id={&id}>{summary}</div>
+
             <div class="mb-4">
                 <h1 class="text-2xl font-bold mb-2">Progress</h1>
 
@@ -124,7 +126,6 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
                 </div>
             </div>
 
-            <div class="hidden" id={&id}>{summary}</div>
             <Cards cards={sorted} />
         </>
     );

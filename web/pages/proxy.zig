@@ -9,9 +9,7 @@ const cookie_name = "auth_token";
 pub fn setToken(response: *const zx.Response, token: []const u8) void {
     response.setCookie(cookie_name, token, .{
         .path = "/",
-        // 10 days worth of login
-        // TODO: extend duration when navigating web?
-        .max_age = 60 * 60 * 24 * 10,
+        .max_age = 60 * 60 * 12,
     });
 }
 
@@ -31,6 +29,11 @@ const redirects: []const Redirect = &.{
 pub fn Proxy(ctx: *zx.ProxyContext) !void {
     const state: app.ProxyState = .init(ctx, cookie_name);
     ctx.state(state);
+
+    // extend token duration
+    if (state.token) |token| {
+        setToken(&ctx.response, token);
+    }
 
     for (redirects) |redirect| {
         if (std.mem.eql(u8, ctx.request.pathname, redirect.from)) {
