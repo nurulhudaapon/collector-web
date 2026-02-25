@@ -6,7 +6,6 @@ const app = @import("app");
 const database = @import("database");
 
 const Cards = @import("../../components/cards.zx").Cards;
-pub const CopyText = @import("../../components/copy.zx").CopyText;
 
 fn textSummary(
     allocator: std.mem.Allocator,
@@ -54,13 +53,7 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
     var session = try ctx.app.pool.getSession(ctx.arena);
     defer session.deinit();
 
-    const user = try ctx.state.getUser(&session) orelse {
-        return (
-            <>
-                Must be logged in to access this page
-            </>
-        );
-    };
+    const user = try ctx.state.getUser(&session) orelse return error.NotLoggedIn;
 
     const tracked = try user.getTracked(&session);
     if (tracked.species.len == 0) {
@@ -122,7 +115,9 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
                         {percent_txt}% complete ({owned}/{total} variants)
                     </div>
 
-                    <CopyText @rendering={.client} display="Copy missing cards" content_id={&id} />
+                    <a href="/pdf" class="px-4 py-2 bg-accent2 text-white rounded text-sm">
+                        Download Printable Grid (PDF)
+                    </a>
                 </div>
             </div>
 

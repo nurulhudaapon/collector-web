@@ -15,7 +15,7 @@ stamps: Stamps,
 foil: Foil,
 
 /// caller owns memory and must free it
-pub fn toString(self: *const Variant, allocator: std.mem.Allocator) ![]const u8 {
+pub fn toString(self: Variant, allocator: std.mem.Allocator) ![]const u8 {
     var aw: std.Io.Writer.Allocating = .init(allocator);
     defer aw.deinit();
 
@@ -101,7 +101,7 @@ pub const Stamps = struct {
         };
     }
 
-    pub fn deinit(self: *const Stamps, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: Stamps, allocator: std.mem.Allocator) void {
         allocator.free(self.items);
     }
 
@@ -319,7 +319,7 @@ pub const Foil = enum {
     starlight,
 };
 
-pub fn ownedBy(self: *const Variant, session: *database.Session, user_id: database.Id) !bool {
+pub fn ownedBy(self: Variant, session: *database.Session, user_id: database.Id) !bool {
     const row = try session
         .query(database.Owned)
         .where("user_id", user_id)

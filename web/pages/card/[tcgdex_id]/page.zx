@@ -12,12 +12,6 @@ const Image = cards.Image;
 
 const wasm = @import("../../../wasm.zig");
 
-const Owned = enum {
-    not_logged,
-    yes,
-    no,
-};
-
 // const text = await response.text()
 fn onText(text: js.Object) !void {
     const slice = try text.value.string(wasm.allocator);
@@ -143,13 +137,7 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
     var session = try ctx.app.pool.getSession(ctx.arena);
     defer session.deinit();
 
-    const user = try ctx.state.getUser(&session) orelse {
-        return (
-            <>
-                Must be logged in to access this page
-            </>
-        );
-    };
+    const user = try ctx.state.getUser(&session) orelse return error.NotLoggedIn;
 
     const card = try session
         .query(database.Card)

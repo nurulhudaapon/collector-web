@@ -123,13 +123,7 @@ pub fn Page(ctx: app.PageCtx) !zx.Component {
     var session = try ctx.app.pool.getSession(ctx.arena);
     defer session.deinit();
 
-    const user = try ctx.state.getUser(&session) orelse {
-        return (
-            <>
-                Must be logged in to access this page
-            </>
-        );
-    };
+    const user = try ctx.state.getUser(&session) orelse return error.NotLoggedIn;
 
     const all_species = try session
         .query(database.Species)

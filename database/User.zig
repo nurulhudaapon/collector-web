@@ -163,7 +163,7 @@ pub fn login(session: *database.Session, args: AuthArgs) !AuthResponse {
     return .init(allocator, session, user.id, user.username);
 }
 
-pub fn logout(self: *const User, session: *database.Session) !void {
+pub fn logout(self: User, session: *database.Session) !void {
     try session
         .query(Token)
         .where("user_id", self.id)
@@ -185,7 +185,7 @@ const UserTracking = struct {
     cards: []const database.Card,
 };
 
-pub fn getTracked(self: *const User, session: *database.Session) !UserTracking {
+pub fn getTracked(self: User, session: *database.Session) !UserTracking {
     const species = try session
         .query(database.Tracked)
         .where("user_id", self.id)
@@ -216,7 +216,7 @@ pub fn getTracked(self: *const User, session: *database.Session) !UserTracking {
     };
 }
 
-pub fn isTracking(self: *const User, session: *database.Session, species: database.Species) !bool {
+pub fn isTracking(self: User, session: *database.Session, species: database.Species) !bool {
     const tracked = try session
         .query(database.Tracked)
         .where("user_id", self.id)

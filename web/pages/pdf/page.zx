@@ -1,0 +1,78 @@
+const std = @import("std");
+
+const zx = @import("zx");
+
+const app = @import("app");
+const database = @import("database");
+
+const Item = struct {
+    card: database.Card,
+    set: database.Set,
+    variant: database.Variant,
+};
+
+pub fn Page(ctx: app.PageCtx) !zx.Component {
+    var session = try ctx.app.pool.getSession(ctx.arena);
+    defer session.deinit();
+
+    const user = try ctx.state.getUser(&session) orelse return error.NotLogged;
+
+    const tracked = try user.getTracked(&session);
+    const sets = try session.query(database.Set).findAll();
+
+    var items: std.ArrayList(Item) = .empty;
+    defer items.deinit(ctx.arena);
+
+    const cards = try database.Card.sort(ctx.arena, tracked.cards, sets);
+    for (cards) |card| {
+        const set = try card.getSet(&session);
+        const variants = try card.getVariants(&session);
+
+        for (variants) |variant| {
+            try items.append(ctx.arena, .{
+                .card = card,
+                .set = set,
+                .variant = variant,
+            });
+        }
+    }
+
+    var i: usize = 0;
+    const cards_per_page = 9;
+    const n_items = items.items.len;
+
+    return (
+        <div @allocator={ctx.arena}>
+            <link rel="stylesheet" href="/pdf.css" />
+
+            {while (i < n_items) : (i += cards_per_page) (
+                <div class="page">
+                    {for (items.items[i .. @min(i + cards_per_page, n_items)], 0..) |item, j| (
+                        <div class="card">
+                            {item.card.name}
+                            <br />
+                            <br />
+                            {item.set.name}
+                            <br />
+                            <br />
+                            {try item.variant.toString(ctx.arena)}
+                            <br />
+                            <br />
+                            <br />
+                            <br />
+                            <br />
+                            <br />
+                            <br />
+                            {1 + i + j} / {n_items}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <script>
+                // on load, open (print/download pdf) button
+                window.print()
+            </script>
+        </div>
+    );
+}

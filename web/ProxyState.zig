@@ -19,7 +19,7 @@ pub fn init(ctx: *zx.ProxyContext, cookie_name: []const u8) ProxyState {
     };
 }
 
-pub fn getUser(self: *const ProxyState, session: *database.Session) !?database.User {
+pub fn getUser(self: ProxyState, session: *database.Session) !?database.User {
     const token = self.token orelse return null;
     return .get(session, token);
 }

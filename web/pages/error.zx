@@ -23,11 +23,22 @@ fn stackTrace(allocator: std.mem.Allocator) ![]const u8 {
 }
 
 pub fn Error(ctx: zx.ErrorContext) zx.Component {
-    const trace = stackTrace(ctx.arena) catch "";
+    switch (ctx.err) {
+        error.NotLoggedIn => {
+            return (
+                <>
+                    Must be logged in to access this page
+                </>
+            );
+        },
+        else => {},
+    }
 
     if (routing.isApi(ctx.request.url)) {
         log.err("APIs shouldn't go through pages' processing: {s}", .{ctx.request.url});
     }
+
+    const trace = stackTrace(ctx.arena) catch "";
 
     return (
         <div @allocator={ctx.arena} class="text-xl">

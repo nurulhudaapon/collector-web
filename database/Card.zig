@@ -118,9 +118,16 @@ pub fn sort(allocator: Allocator, cards: []const Card, sets: []const database.Se
     return sorted;
 }
 
-pub fn getVariants(self: *const Card, session: *database.Session) ![]const database.Variant {
+pub fn getVariants(self: Card, session: *database.Session) ![]const database.Variant {
     return session
         .query(database.Variant)
         .where("card_id", self.tcgdex_id)
         .findAll();
+}
+
+pub fn getSet(self: Card, session: *database.Session) !database.Set {
+    return try session
+        .query(database.Set)
+        .where("tcgdex_id", self.set_id)
+        .findFirst() orelse return error.SetNotFound;
 }

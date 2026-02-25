@@ -40,12 +40,18 @@ pub fn User(allocator: zx.Allocator, props: struct { username: []const u8 }) !zx
 }
 
 pub fn Layout(ctx: app.LayoutCtx, children: zx.Component) zx.Component {
-    if (routing.isApi(ctx.request.url)) {
+    if (routing.isApi(ctx.request.pathname)) {
         return (
             <div @allocator={ctx.arena}>
                 {children}
             </div>
         );
+    }
+
+    // needs special render (no header/footer, no colors, etc)
+    // in order to get a printable PDF
+    if (std.mem.eql(u8, ctx.request.pathname, "/pdf")) {
+        return children;
     }
 
     var session = ctx.app.pool.getSession(ctx.arena) catch {
